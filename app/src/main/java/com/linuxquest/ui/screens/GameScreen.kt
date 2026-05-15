@@ -353,6 +353,19 @@ fun GameScreen(
                                 xp = xp
                             )
                             xpSystem.awardXp(xp)
+
+                            // Check achievements
+                            val completedCount = db.progressDao().getCompletedCountSync()
+                            val profile = xpSystem.getProfile()
+                            val achievementMgr = com.linuxquest.game.AchievementManager(db.achievementDao(), db.progressDao())
+                            achievementMgr.checkAndUnlock(
+                                levelId = levelId,
+                                hintsUsed = hintsUsed,
+                                timeSeconds = elapsed,
+                                totalCompleted = completedCount,
+                                totalXp = profile.totalXp
+                            )
+
                             onLevelComplete(level.password)
                         }
                     }

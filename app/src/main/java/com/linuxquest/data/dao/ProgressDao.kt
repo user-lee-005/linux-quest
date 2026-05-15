@@ -2,6 +2,7 @@ package com.linuxquest.data.dao
 
 import androidx.room.*
 import com.linuxquest.data.entities.LevelProgress
+import com.linuxquest.data.entities.UserProfile
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -15,6 +16,9 @@ interface ProgressDao {
 
     @Query("SELECT COUNT(*) FROM level_progress WHERE completed = 1")
     fun getCompletedCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM level_progress WHERE completed = 1")
+    suspend fun getCompletedCountSync(): Int
 
     @Upsert
     suspend fun upsertProgress(progress: LevelProgress)
