@@ -91,7 +91,7 @@ fun LevelSelectScreen(
             indicator = { tabPositions ->
                 if (selectedCategory < tabPositions.size) {
                     TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedCategory]),
+                        Modifier.fillMaxWidth(),
                         color = Color(categories[selectedCategory].color)
                     )
                 }

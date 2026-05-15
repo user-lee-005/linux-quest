@@ -1,5 +1,6 @@
 package com.linuxquest.shell.commands
 
+import com.linuxquest.filesystem.FileNode
 import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.shell.Command
 import com.linuxquest.shell.CommandResult
@@ -303,7 +304,7 @@ class DuCommand : Command {
 
     private fun calculateSize(vfs: VirtualFileSystem, path: String): Long {
         val node = vfs.getNode(path) ?: return 0
-        return if (vfs.isFile(path)) {
+        return if (node is FileNode) {
             node.size
         } else {
             var total = 4096L

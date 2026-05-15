@@ -437,7 +437,7 @@ SYNOPSIS
     awk [-F sep] 'PROGRAM' [file]
 
 DESCRIPTION
-    A simplified awk supporting print, $0-$NF, NR, NF, FS.
+    A simplified awk supporting print, ${'$'}0-${'$'}NF, NR, NF, FS.
     """.trimIndent()
 
     override fun execute(args: List<String>, stdin: String?, vfs: VirtualFileSystem, env: ShellEnvironment): CommandResult {
