@@ -10,7 +10,7 @@ data class Level(
     val briefing: String,
     val hints: List<String>,
     val password: String,
-    val setupFileSystem: (VirtualFileSystem) -> Unit,
+    val setupFileSystem: (VirtualFileSystem, Long) -> Unit,
     val validateCompletion: (VirtualFileSystem, String) -> Boolean,
     val teachingPoints: List<String>,
     val commandsIntroduced: List<String>

@@ -4,6 +4,7 @@ import com.linuxquest.filesystem.Permissions
 import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.game.Level
 import com.linuxquest.game.LevelCategory
+import com.linuxquest.game.LevelRandomizer
 import com.linuxquest.game.PasswordSystem
 
 private fun mkdirs(vfs: VirtualFileSystem, path: String) {
@@ -34,9 +35,14 @@ fun createFileBasicsLevels(): List<Level> {
                 "Use 'cat readme' to display the file contents"
             ),
             password = ps.getPassword(0),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(0)
-                vfs.createFile("/home/bandit0/readme", password.toByteArray(), Permissions.fromOctal(644))
+                val fileName = r.randomFileName()
+                vfs.createFile("/home/bandit0/$fileName", password.toByteArray(), Permissions.fromOctal(644))
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, lastOutput ->
                 val password = PasswordSystem().getPassword(0)
@@ -59,14 +65,22 @@ fun createFileBasicsLevels(): List<Level> {
                 "The full path is deep/nested/directory/password.txt — use cd or cat with the path"
             ),
             password = ps.getPassword(1),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(1)
-                mkdirs(vfs, "/home/bandit0/deep/nested/directory")
+                val dir1 = r.randomDirName()
+                val dir2 = r.randomDirName()
+                val dir3 = r.randomDirName()
+                val fileName = r.randomFileNameWithExt()
+                mkdirs(vfs, "/home/bandit0/$dir1/$dir2/$dir3")
                 vfs.createFile(
-                    "/home/bandit0/deep/nested/directory/password.txt",
+                    "/home/bandit0/$dir1/$dir2/$dir3/$fileName",
                     password.toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$dir1/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, lastOutput ->
                 val password = PasswordSystem().getPassword(1)
@@ -93,18 +107,12 @@ fun createFileBasicsLevels(): List<Level> {
                 "Use 'cat ./-' to read the file"
             ),
             password = ps.getPassword(2),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(2)
-                vfs.createFile(
-                    "/home/bandit0/readme.txt",
-                    "This is not the password.".toByteArray(),
-                    Permissions.fromOctal(644)
-                )
-                vfs.createFile(
-                    "/home/bandit0/notes.txt",
-                    "Nothing to see here.".toByteArray(),
-                    Permissions.fromOctal(644)
-                )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
                 vfs.createFile(
                     "/home/bandit0/-",
                     password.toByteArray(),
@@ -135,23 +143,18 @@ fun createFileBasicsLevels(): List<Level> {
                 "Read the .hidden file with 'cat .hidden'"
             ),
             password = ps.getPassword(3),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(3)
+                val hiddenName = r.randomHiddenFileName()
                 vfs.createFile(
-                    "/home/bandit0/.hidden",
+                    "/home/bandit0/$hiddenName",
                     password.toByteArray(),
                     Permissions.fromOctal(644)
                 )
-                vfs.createFile(
-                    "/home/bandit0/notes.txt",
-                    "No password here.".toByteArray(),
-                    Permissions.fromOctal(644)
-                )
-                vfs.createFile(
-                    "/home/bandit0/todo.txt",
-                    "Keep searching.".toByteArray(),
-                    Permissions.fromOctal(644)
-                )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, lastOutput ->
                 val password = PasswordSystem().getPassword(3)
@@ -178,7 +181,8 @@ fun createFileBasicsLevels(): List<Level> {
                 "The human-readable file contains ASCII text — use 'cat' on it"
             ),
             password = ps.getPassword(4),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(4)
                 mkdirs(vfs, "/home/bandit0/data")
 
@@ -199,15 +203,15 @@ fun createFileBasicsLevels(): List<Level> {
                     0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52
                 )
 
-                vfs.createFile("/home/bandit0/data/file00", elfHeader, Permissions.fromOctal(644))
-                vfs.createFile("/home/bandit0/data/file01", gzipHeader, Permissions.fromOctal(644))
+                vfs.createFile("/home/bandit0/data/${r.randomFileName()}", elfHeader, Permissions.fromOctal(644))
+                vfs.createFile("/home/bandit0/data/${r.randomFileName()}", gzipHeader, Permissions.fromOctal(644))
                 vfs.createFile(
-                    "/home/bandit0/data/file02",
+                    "/home/bandit0/data/${r.randomFileName()}",
                     "password: $password\n".toByteArray(),
                     Permissions.fromOctal(644)
                 )
-                vfs.createFile("/home/bandit0/data/file03", bzip2Header, Permissions.fromOctal(644))
-                vfs.createFile("/home/bandit0/data/file04", pngHeader, Permissions.fromOctal(644))
+                vfs.createFile("/home/bandit0/data/${r.randomFileName()}", bzip2Header, Permissions.fromOctal(644))
+                vfs.createFile("/home/bandit0/data/${r.randomFileName()}", pngHeader, Permissions.fromOctal(644))
             },
             validateCompletion = { _, lastOutput ->
                 val password = PasswordSystem().getPassword(4)
@@ -233,13 +237,19 @@ fun createFileBasicsLevels(): List<Level> {
                 "Use: cat \"spaces in this name\""
             ),
             password = ps.getPassword(5),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(5)
+                val part1 = r.randomFileName()
+                val part2 = r.randomFileName()
                 vfs.createFile(
-                    "/home/bandit0/spaces in this name",
+                    "/home/bandit0/$part1 $part2",
                     password.toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, lastOutput ->
                 val password = PasswordSystem().getPassword(5)
@@ -265,44 +275,47 @@ fun createFileBasicsLevels(): List<Level> {
                 "Once found, use 'cat' on the full path to read it"
             ),
             password = ps.getPassword(6),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(6)
 
-                mkdirs(vfs, "/home/bandit0/data/alpha/sub1")
-                mkdirs(vfs, "/home/bandit0/data/alpha/sub2")
-                mkdirs(vfs, "/home/bandit0/data/beta/sub1")
-                mkdirs(vfs, "/home/bandit0/data/beta/sub2")
-                mkdirs(vfs, "/home/bandit0/data/gamma/sub1")
-                mkdirs(vfs, "/home/bandit0/data/gamma/sub2")
+                val dirs = (1..3).map { r.randomDirName() }
+                val subs = (1..6).map { r.randomDirName() }
+                mkdirs(vfs, "/home/bandit0/data/${dirs[0]}/${subs[0]}")
+                mkdirs(vfs, "/home/bandit0/data/${dirs[0]}/${subs[1]}")
+                mkdirs(vfs, "/home/bandit0/data/${dirs[1]}/${subs[2]}")
+                mkdirs(vfs, "/home/bandit0/data/${dirs[1]}/${subs[3]}")
+                mkdirs(vfs, "/home/bandit0/data/${dirs[2]}/${subs[4]}")
+                mkdirs(vfs, "/home/bandit0/data/${dirs[2]}/${subs[5]}")
 
                 vfs.createFile(
-                    "/home/bandit0/data/alpha/sub1/info.txt",
-                    "Nothing useful here.\n".toByteArray(),
+                    "/home/bandit0/data/${dirs[0]}/${subs[0]}/${r.randomFileNameWithExt()}",
+                    r.randomDecoyContent().toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/data/alpha/sub2/readme.txt",
-                    "This is a decoy file.\n".toByteArray(),
+                    "/home/bandit0/data/${dirs[0]}/${subs[1]}/${r.randomFileNameWithExt()}",
+                    r.randomDecoyContent().toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/data/beta/sub1/data.txt",
-                    "No password in this file.\n".toByteArray(),
+                    "/home/bandit0/data/${dirs[1]}/${subs[2]}/${r.randomFileNameWithExt()}",
+                    r.randomDecoyContent().toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/data/beta/sub2/secret.txt",
+                    "/home/bandit0/data/${dirs[1]}/${subs[3]}/${r.randomFileNameWithExt()}",
                     password.toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/data/gamma/sub1/notes.txt",
-                    "Keep looking elsewhere.\n".toByteArray(),
+                    "/home/bandit0/data/${dirs[2]}/${subs[4]}/${r.randomFileNameWithExt()}",
+                    r.randomDecoyContent().toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/data/gamma/sub2/log.txt",
-                    "System log: all clear.\n".toByteArray(),
+                    "/home/bandit0/data/${dirs[2]}/${subs[5]}/${r.randomFileNameWithExt()}",
+                    r.randomDecoyContent().toByteArray(),
                     Permissions.fromOctal(644)
                 )
             },
@@ -331,13 +344,14 @@ fun createFileBasicsLevels(): List<Level> {
                 "The 'c' suffix in -size means bytes (characters)"
             ),
             password = ps.getPassword(7),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(7)
                 mkdirs(vfs, "/home/bandit0/data")
 
                 val sizes = listOf(500, 750, 2000, 100, 1500, 300, 800, 1033, 1200, 450)
                 for (i in 0..9) {
-                    val name = "/home/bandit0/data/chunk%02d".format(i)
+                    val name = "/home/bandit0/data/${r.randomFileName()}"
                     if (i == 7) {
                         val content = password + "\n"
                         val padded = content.padEnd(1033, ' ')
@@ -372,7 +386,8 @@ fun createFileBasicsLevels(): List<Level> {
                 "The -u flag for uniq shows only lines that appear exactly once"
             ),
             password = ps.getPassword(8),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(8)
                 val duplicateLines = listOf(
                     "alpha bravo charlie",
@@ -391,10 +406,11 @@ fun createFileBasicsLevels(): List<Level> {
                     repeat(repeats) { lines.add(line) }
                 }
                 lines.add(password)
-                lines.shuffle(java.util.Random(42))
+                lines.shuffle(java.util.Random(seed))
                 val content = lines.joinToString("\n") + "\n"
+                val fileName = r.randomFileNameWithExt()
                 vfs.createFile(
-                    "/home/bandit0/data.txt",
+                    "/home/bandit0/$fileName",
                     content.toByteArray(),
                     Permissions.fromOctal(644)
                 )
@@ -424,7 +440,8 @@ fun createFileBasicsLevels(): List<Level> {
                 "Try: grep 'password:' haystack.txt"
             ),
             password = ps.getPassword(9),
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(9)
                 val noiseLines = listOf(
                     "server-01 status: online",
@@ -460,10 +477,11 @@ fun createFileBasicsLevels(): List<Level> {
                 val lines = mutableListOf<String>()
                 lines.addAll(noiseLines)
                 lines.add("password: $password")
-                lines.shuffle(java.util.Random(99))
+                lines.shuffle(java.util.Random(seed))
                 val content = lines.joinToString("\n") + "\n"
+                val fileName = r.randomFileNameWithExt()
                 vfs.createFile(
-                    "/home/bandit0/haystack.txt",
+                    "/home/bandit0/$fileName",
                     content.toByteArray(),
                     Permissions.fromOctal(644)
                 )

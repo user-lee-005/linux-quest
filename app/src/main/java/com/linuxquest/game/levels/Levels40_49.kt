@@ -4,6 +4,7 @@ import com.linuxquest.filesystem.Permissions
 import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.game.Level
 import com.linuxquest.game.LevelCategory
+import com.linuxquest.game.LevelRandomizer
 import com.linuxquest.game.PasswordSystem
 
 private fun mkdirs(vfs: VirtualFileSystem, path: String) {
@@ -35,24 +36,33 @@ fun createScriptingLevels(): List<Level> {
                 hints = listOf(
                     "Read the script file to see the variables",
                     "The password is split into two variables",
-                    "Run: bash vars.sh — or echo the variables yourself"
+                    "Run the script with bash — or echo the variables yourself"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val scriptName = r.randomFileName() + ".sh"
+                    val readmeName = r.randomFileNameWithExt()
+
                     val scriptContent = "#!/bin/bash\nPART1=\"$part1\"\nPART2=\"$part2\"\necho \"\$PART1\$PART2\"\n"
                     vfs.createFile(
-                        "/home/bandit0/vars.sh",
+                        "/home/bandit0/$scriptName",
                         scriptContent.toByteArray(),
                         Permissions.fromOctal(755)
                     )
-                    vfs.chown("/home/bandit0/vars.sh", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$scriptName", "bandit0", "bandit0")
 
-                    val readmeContent = "Run the script vars.sh to get the password, or figure out the variables yourself.\n"
+                    val readmeContent = "Run the script $scriptName to get the password, or figure out the variables yourself.\n"
                     vfs.createFile(
-                        "/home/bandit0/readme.txt",
+                        "/home/bandit0/$readmeName",
                         readmeContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/readme.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$readmeName", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -79,24 +89,33 @@ fun createScriptingLevels(): List<Level> {
                     "The command that returns 0 (success) has the password"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val commandsFile = r.randomFileNameWithExt()
+                    val correctFile = r.randomFileNameWithExt()
+
                     val commandsContent = buildString {
                         appendLine("cat /nonexistent/file")
                         appendLine("cat /home/bandit0/wrong.txt")
-                        appendLine("cat /home/bandit0/correct.txt")
+                        appendLine("cat /home/bandit0/$correctFile")
                         appendLine("cat /missing/path")
                     }
                     vfs.createFile(
-                        "/home/bandit0/commands.txt",
+                        "/home/bandit0/$commandsFile",
                         commandsContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/commands.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$commandsFile", "bandit0", "bandit0")
 
                     vfs.createFile(
-                        "/home/bandit0/correct.txt",
+                        "/home/bandit0/$correctFile",
                         "$password\n".toByteArray()
                     )
-                    vfs.chown("/home/bandit0/correct.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$correctFile", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -118,41 +137,52 @@ fun createScriptingLevels(): List<Level> {
                 description = "A script checks a condition to decide which file contains the password. Read the script to find the answer.",
                 briefing = "Conditional logic with if/then/else lets scripts make decisions. Understanding conditionals is key to writing useful scripts.",
                 hints = listOf(
-                    "Read check.sh to understand the conditional logic",
-                    "The script checks if flag.txt exists",
-                    "flag.txt exists, so the 'if' branch runs — read alpha.txt"
+                    "Read the script to understand the conditional logic",
+                    "The script checks if a flag file exists",
+                    "The flag file exists, so the 'if' branch runs — read the file it cats"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val scriptName = r.randomFileName() + ".sh"
+                    val flagFile = r.randomFileNameWithExt()
+                    val alphaFile = r.randomFileNameWithExt()
+                    val betaFile = r.randomFileNameWithExt()
+
                     val scriptContent = buildString {
                         appendLine("#!/bin/bash")
-                        appendLine("if [ -f /home/bandit0/flag.txt ]; then")
-                        appendLine("    cat /home/bandit0/alpha.txt")
+                        appendLine("if [ -f /home/bandit0/$flagFile ]; then")
+                        appendLine("    cat /home/bandit0/$alphaFile")
                         appendLine("else")
-                        appendLine("    cat /home/bandit0/beta.txt")
+                        appendLine("    cat /home/bandit0/$betaFile")
                         appendLine("fi")
                     }
                     vfs.createFile(
-                        "/home/bandit0/check.sh",
+                        "/home/bandit0/$scriptName",
                         scriptContent.toByteArray(),
                         Permissions.fromOctal(755)
                     )
-                    vfs.chown("/home/bandit0/check.sh", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$scriptName", "bandit0", "bandit0")
 
-                    vfs.createFile("/home/bandit0/flag.txt", ByteArray(0))
-                    vfs.chown("/home/bandit0/flag.txt", "bandit0", "bandit0")
+                    vfs.createFile("/home/bandit0/$flagFile", ByteArray(0))
+                    vfs.chown("/home/bandit0/$flagFile", "bandit0", "bandit0")
 
                     vfs.createFile(
-                        "/home/bandit0/alpha.txt",
+                        "/home/bandit0/$alphaFile",
                         "$password\n".toByteArray()
                     )
-                    vfs.chown("/home/bandit0/alpha.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$alphaFile", "bandit0", "bandit0")
 
                     vfs.createFile(
-                        "/home/bandit0/beta.txt",
+                        "/home/bandit0/$betaFile",
                         "Wrong path!\n".toByteArray()
                     )
-                    vfs.chown("/home/bandit0/beta.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$betaFile", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -179,17 +209,25 @@ fun createScriptingLevels(): List<Level> {
                 hints = listOf(
                     "The password is split across 8 fragment files",
                     "Use a for loop to read them in order",
-                    "Try: for i in \$(seq 1 8); do cat fragments/frag_\$i; done"
+                    "Try: for i in \$(seq 1 8); do cat <dir>/frag_\$i; done"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
-                    mkdirs(vfs, "/home/bandit0/fragments")
-                    vfs.chown("/home/bandit0/fragments", "bandit0", "bandit0")
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val fragDir = r.randomDirName()
+
+                    mkdirs(vfs, "/home/bandit0/$fragDir")
+                    vfs.chown("/home/bandit0/$fragDir", "bandit0", "bandit0")
 
                     for (i in 1..8) {
-                        val path = "/home/bandit0/fragments/frag_$i"
+                        val path = "/home/bandit0/$fragDir/frag_$i"
                         vfs.createFile(path, segments[i - 1].toByteArray())
                         vfs.chown(path, "bandit0", "bandit0")
+                    }
+
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
                     }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
@@ -213,24 +251,33 @@ fun createScriptingLevels(): List<Level> {
                 description = "Define a function that reverses a string, then use it to decode the password.",
                 briefing = "Functions in shell scripts let you reuse code. They can accept arguments and return results — building blocks for larger scripts.",
                 hints = listOf(
-                    "The file contains the password but reversed",
+                    "One of the files contains the password but reversed",
                     "You can write a bash function to reverse it",
-                    "Simpler: use 'cat reversed.txt | rev' to reverse the string"
+                    "Simpler: pipe the file through 'rev' to reverse the string"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val reversedFile = r.randomFileNameWithExt()
+                    val readmeName = r.randomFileNameWithExt()
+
                     vfs.createFile(
-                        "/home/bandit0/reversed.txt",
+                        "/home/bandit0/$reversedFile",
                         "$reversed\n".toByteArray()
                     )
-                    vfs.chown("/home/bandit0/reversed.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$reversedFile", "bandit0", "bandit0")
 
-                    val readmeContent = "The password is stored reversed. Write a function to reverse it back, or use the rev command.\n"
+                    val readmeContent = "The password is stored reversed in $reversedFile. Write a function to reverse it back, or use the rev command.\n"
                     vfs.createFile(
-                        "/home/bandit0/readme.txt",
+                        "/home/bandit0/$readmeName",
                         readmeContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/readme.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$readmeName", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -254,10 +301,14 @@ fun createScriptingLevels(): List<Level> {
                 hints = listOf(
                     "The script needs an argument — read the script source code",
                     "Look at what value \$1 is compared against",
-                    "Run: bash unlock.sh opensesame"
+                    "Run the script with the correct passphrase as argument"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val scriptName = r.randomFileName() + ".sh"
+                    val readmeName = r.randomFileNameWithExt()
+
                     val scriptContent = buildString {
                         appendLine("#!/bin/bash")
                         appendLine("if [ \"\$1\" = \"opensesame\" ]; then")
@@ -267,18 +318,23 @@ fun createScriptingLevels(): List<Level> {
                         appendLine("fi")
                     }
                     vfs.createFile(
-                        "/home/bandit0/unlock.sh",
+                        "/home/bandit0/$scriptName",
                         scriptContent.toByteArray(),
                         Permissions.fromOctal(755)
                     )
-                    vfs.chown("/home/bandit0/unlock.sh", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$scriptName", "bandit0", "bandit0")
 
-                    val readmeContent = "Run unlock.sh with the correct argument to get the password.\n"
+                    val readmeContent = "Run $scriptName with the correct argument to get the password.\n"
                     vfs.createFile(
-                        "/home/bandit0/readme.txt",
+                        "/home/bandit0/$readmeName",
                         readmeContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/readme.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$readmeName", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -305,7 +361,10 @@ fun createScriptingLevels(): List<Level> {
                     "The SECRET variable in the script contains the password"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val scriptName = r.randomFileName() + ".sh"
+
                     val scriptContent = buildString {
                         appendLine("#!/bin/bash")
                         appendLine("SECRET=\"$password\"")
@@ -316,11 +375,16 @@ fun createScriptingLevels(): List<Level> {
                         appendLine("sleep 10")
                     }
                     vfs.createFile(
-                        "/home/bandit0/trapped.sh",
+                        "/home/bandit0/$scriptName",
                         scriptContent.toByteArray(),
                         Permissions.fromOctal(755)
                     )
-                    vfs.chown("/home/bandit0/trapped.sh", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$scriptName", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -344,27 +408,31 @@ fun createScriptingLevels(): List<Level> {
                 hints = listOf(
                     "Look at the generator script — it creates a file with a heredoc",
                     "The output file has already been generated",
-                    "Read output.txt or the script itself to find the password"
+                    "Read the output file or the script itself to find the password"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val generatorName = r.randomFileName() + ".sh"
+                    val outputName = r.randomFileNameWithExt()
+
                     val scriptContent = buildString {
                         appendLine("#!/bin/bash")
-                        appendLine("cat << 'EOF' > /home/bandit0/output.txt")
+                        appendLine("cat << 'EOF' > /home/bandit0/$outputName")
                         appendLine("Configuration Report")
                         appendLine("====================")
                         appendLine("Server: linuxquest")
                         appendLine("Password: $password")
                         appendLine("Status: active")
                         appendLine("EOF")
-                        appendLine("echo \"File generated at /home/bandit0/output.txt\"")
+                        appendLine("echo \"File generated at /home/bandit0/$outputName\"")
                     }
                     vfs.createFile(
-                        "/home/bandit0/generator.sh",
+                        "/home/bandit0/$generatorName",
                         scriptContent.toByteArray(),
                         Permissions.fromOctal(755)
                     )
-                    vfs.chown("/home/bandit0/generator.sh", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$generatorName", "bandit0", "bandit0")
 
                     val outputContent = buildString {
                         appendLine("Configuration Report")
@@ -374,10 +442,15 @@ fun createScriptingLevels(): List<Level> {
                         appendLine("Status: active")
                     }
                     vfs.createFile(
-                        "/home/bandit0/output.txt",
+                        "/home/bandit0/$outputName",
                         outputContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/output.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$outputName", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -425,24 +498,33 @@ fun createScriptingLevels(): List<Level> {
                 hints = listOf(
                     "Compare the two list files to find the extra entry",
                     "Use diff to compare them, or use process substitution",
-                    "Try: diff list_a.txt list_b.txt — or: comm -13 list_a.txt list_b.txt"
+                    "Try: diff <file_a> <file_b> — or: comm -13 <file_a> <file_b>"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val listAName = r.randomFileNameWithExt()
+                    val listBName = r.randomFileNameWithExt()
+
                     val listAContent = listA.joinToString("\n") + "\n"
                     val listBContent = listB.joinToString("\n") + "\n"
 
                     vfs.createFile(
-                        "/home/bandit0/list_a.txt",
+                        "/home/bandit0/$listAName",
                         listAContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/list_a.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$listAName", "bandit0", "bandit0")
 
                     vfs.createFile(
-                        "/home/bandit0/list_b.txt",
+                        "/home/bandit0/$listBName",
                         listBContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/list_b.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$listBName", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -466,39 +548,49 @@ fun createScriptingLevels(): List<Level> {
                 hints = listOf(
                     "Read the crontab file to see what scripts are scheduled",
                     "Look at the script paths — one is in your home directory",
-                    "Read the weekly_report.sh script to find the password variable"
+                    "Read the script in your home directory to find the password variable"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val crontabName = r.randomFileNameWithExt()
+                    val scriptsDir = r.randomDirName()
+                    val reportScript = r.randomFileName() + ".sh"
+
                     val crontabContent = buildString {
                         appendLine("# LinuxQuest Cron Jobs")
                         appendLine("# m h dom mon dow command")
                         appendLine("*/5 * * * * /usr/bin/health_check.sh")
                         appendLine("0 2 * * * /opt/backup/daily_backup.sh")
-                        appendLine("30 8 * * 1 /home/bandit0/scripts/weekly_report.sh")
+                        appendLine("30 8 * * 1 /home/bandit0/$scriptsDir/$reportScript")
                         appendLine("0 0 1 * * /var/log/rotate.sh")
                     }
                     vfs.createFile(
-                        "/home/bandit0/crontab.txt",
+                        "/home/bandit0/$crontabName",
                         crontabContent.toByteArray()
                     )
-                    vfs.chown("/home/bandit0/crontab.txt", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$crontabName", "bandit0", "bandit0")
 
-                    mkdirs(vfs, "/home/bandit0/scripts")
-                    vfs.chown("/home/bandit0/scripts", "bandit0", "bandit0")
+                    mkdirs(vfs, "/home/bandit0/$scriptsDir")
+                    vfs.chown("/home/bandit0/$scriptsDir", "bandit0", "bandit0")
 
-                    val reportScript = buildString {
+                    val reportContent = buildString {
                         appendLine("#!/bin/bash")
                         appendLine("# Weekly report generator")
                         appendLine("PASSWORD=\"$password\"")
                         appendLine("echo \"Weekly report generated with code: \$PASSWORD\"")
                     }
                     vfs.createFile(
-                        "/home/bandit0/scripts/weekly_report.sh",
-                        reportScript.toByteArray(),
+                        "/home/bandit0/$scriptsDir/$reportScript",
+                        reportContent.toByteArray(),
                         Permissions.fromOctal(755)
                     )
-                    vfs.chown("/home/bandit0/scripts/weekly_report.sh", "bandit0", "bandit0")
+                    vfs.chown("/home/bandit0/$scriptsDir/$reportScript", "bandit0", "bandit0")
+
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                        vfs.chown("/home/bandit0/$name", "bandit0", "bandit0")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(

@@ -28,7 +28,8 @@ fun NavGraph() {
     NavHost(navController = navController, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
-                onStartGame = { navController.navigate(Routes.LEVEL_SELECT) },
+                onStartGame = { levelId -> navController.navigate(Routes.game(levelId)) },
+                onSelectLevel = { navController.navigate(Routes.LEVEL_SELECT) },
                 onOpenManual = { navController.navigate(Routes.MANUAL) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                 onOpenAchievements = { navController.navigate(Routes.ACHIEVEMENTS) }

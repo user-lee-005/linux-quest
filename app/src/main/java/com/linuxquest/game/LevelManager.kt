@@ -31,9 +31,9 @@ class LevelManager {
         return levels.values.filter { it.category == category }.sortedBy { it.id }
     }
 
-    fun setupLevel(level: Level, vfs: VirtualFileSystem) {
+    fun setupLevel(level: Level, vfs: VirtualFileSystem, seed: Long = System.currentTimeMillis()) {
         vfs.switchUser("root")
-        level.setupFileSystem(vfs)
+        level.setupFileSystem(vfs, seed)
         vfs.switchUser("bandit0")
         vfs.cd("/home/bandit0")
     }

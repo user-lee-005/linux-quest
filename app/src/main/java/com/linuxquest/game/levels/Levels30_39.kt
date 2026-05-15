@@ -5,6 +5,7 @@ import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.game.Level
 import com.linuxquest.game.LevelCategory
 import com.linuxquest.game.PasswordSystem
+import com.linuxquest.game.LevelRandomizer
 import java.util.Base64
 
 private fun mkdirs(vfs: VirtualFileSystem, path: String) {
@@ -46,13 +47,18 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Try: base64 -d encoded.txt"
             ),
             password = password30,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val fileName = r.randomFileNameWithExt()
                 val encoded = Base64.getEncoder().encodeToString(password30.toByteArray())
                 vfs.createFile(
-                    "/home/bandit0/encoded.txt",
+                    "/home/bandit0/$fileName",
                     encoded.toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, output -> output.contains(password30) },
             teachingPoints = listOf(
@@ -75,13 +81,18 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Try: xxd -r -p hexdump.txt"
             ),
             password = password31,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val fileName = r.randomFileNameWithExt()
                 val hexContent = password31.toByteArray().joinToString(" ") { "%02x".format(it) }
                 vfs.createFile(
-                    "/home/bandit0/hexdump.txt",
+                    "/home/bandit0/$fileName",
                     hexContent.toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, output -> output.contains(password31) },
             teachingPoints = listOf(
@@ -105,16 +116,21 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Try: strings binary.dat"
             ),
             password = password32,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val fileName = r.randomFileNameWithExt()
                 val prefix = ByteArray(50) { ((it * 7 + 13) % 256).toByte() }
                 val suffix = ByteArray(50) { ((it * 11 + 37) % 256).toByte() }
                 val passwordBytes = password32.toByteArray()
                 val content = prefix + passwordBytes + suffix
                 vfs.createFile(
-                    "/home/bandit0/binary.dat",
+                    "/home/bandit0/$fileName",
                     content,
                     Permissions.fromOctal(644)
                 )
+                for ((name, decoy) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", decoy.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, output -> output.contains(password32) },
             teachingPoints = listOf(
@@ -137,7 +153,9 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Try: grep -E 'KEY-[a-f0-9]{32}' data.txt"
             ),
             password = password33,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val fileName = r.randomFileNameWithExt()
                 val lines = mutableListOf<String>()
                 lines.add("item-abc123")
                 lines.add("KEY-invalid123")
@@ -171,7 +189,7 @@ fun createAdvancedDataLevels(): List<Level> {
                 lines.add("KEY-nothex_gghhiijj00112233445566")
                 val content = lines.joinToString("\n") + "\n"
                 vfs.createFile(
-                    "/home/bandit0/data.txt",
+                    "/home/bandit0/$fileName",
                     content.toByteArray(),
                     Permissions.fromOctal(644)
                 )
@@ -198,15 +216,20 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Try: sed 's/@/a/g; s/3/e/g; s/BEGIN_//; s/_END//' scrambled.txt"
             ),
             password = password34,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val fileName = r.randomFileNameWithExt()
                 val scrambled = "BEGIN_" +
                     password34.replace('a', '@').replace('e', '3') +
                     "_END"
                 vfs.createFile(
-                    "/home/bandit0/scrambled.txt",
+                    "/home/bandit0/$fileName",
                     scrambled.toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, output -> output.contains(password34) },
             teachingPoints = listOf(
@@ -230,7 +253,10 @@ fun createAdvancedDataLevels(): List<Level> {
                 "The user with most failures is 'admin' — look up their password in passwords.txt"
             ),
             password = password35,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val logFileName = r.randomFileNameWithExt()
+                val passwordsFileName = r.randomFileNameWithExt()
                 val logLines = mutableListOf<String>()
                 logLines.add("2024-01-15 08:01:00 FAILED user=alice")
                 logLines.add("2024-01-15 08:02:00 SUCCESS user=bob")
@@ -254,7 +280,7 @@ fun createAdvancedDataLevels(): List<Level> {
                 logLines.add("2024-01-15 08:20:00 FAILED user=charlie")
                 val authLog = logLines.joinToString("\n") + "\n"
                 vfs.createFile(
-                    "/home/bandit0/auth.log",
+                    "/home/bandit0/$logFileName",
                     authLog.toByteArray(),
                     Permissions.fromOctal(644)
                 )
@@ -267,7 +293,7 @@ fun createAdvancedDataLevels(): List<Level> {
                 )
                 val passwordsContent = passwordLines.joinToString("\n") + "\n"
                 vfs.createFile(
-                    "/home/bandit0/passwords.txt",
+                    "/home/bandit0/$passwordsFileName",
                     passwordsContent.toByteArray(),
                     Permissions.fromOctal(644)
                 )
@@ -294,16 +320,22 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Check archive/layer1/layer2/password.txt"
             ),
             password = password36,
-            setupFileSystem = { vfs ->
-                mkdirs(vfs, "/home/bandit0/archive/layer1/layer2")
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val topDir = r.randomDirName()
+                val midDir = r.randomDirName()
+                val innerDir = r.randomDirName()
+                val readmeFile = r.randomFileNameWithExt()
+                val passwordFile = r.randomFileNameWithExt()
+                mkdirs(vfs, "/home/bandit0/$topDir/$midDir/$innerDir")
                 vfs.createFile(
-                    "/home/bandit0/archive/readme.txt",
+                    "/home/bandit0/$topDir/$readmeFile",
                     ("This simulates a nested archive.\n" +
                         "The actual password is in the innermost file.\n").toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/archive/layer1/layer2/password.txt",
+                    "/home/bandit0/$topDir/$midDir/$innerDir/$passwordFile",
                     (password36 + "\n").toByteArray(),
                     Permissions.fromOctal(644)
                 )
@@ -330,26 +362,31 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Check each file's checksum against the reference in checksum.txt"
             ),
             password = password37,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val decoyFileA = r.randomFileNameWithExt()
+                val passwordFile = r.randomFileNameWithExt()
+                val decoyFileC = r.randomFileNameWithExt()
+                val checksumFile = r.randomFileNameWithExt()
                 vfs.createFile(
-                    "/home/bandit0/file_a.txt",
+                    "/home/bandit0/$decoyFileA",
                     "This is a decoy file with no useful data.\n".toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/file_b.txt",
+                    "/home/bandit0/$passwordFile",
                     (password37 + "\n").toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/file_c.txt",
+                    "/home/bandit0/$decoyFileC",
                     "Another decoy. Keep looking.\n".toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 val hint = "The verified file has sha256 starting with the first 8 chars of the password.\n" +
-                    "Check file_a.txt, file_b.txt, and file_c.txt\n"
+                    "Check $decoyFileA, $passwordFile, and $decoyFileC\n"
                 vfs.createFile(
-                    "/home/bandit0/checksum.txt",
+                    "/home/bandit0/$checksumFile",
                     hint.toByteArray(),
                     Permissions.fromOctal(644)
                 )
@@ -375,16 +412,21 @@ fun createAdvancedDataLevels(): List<Level> {
                 "The comment field contains the password: cat .ssh/id_rsa.pub"
             ),
             password = password38,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val keyFileName = r.randomFileName() + ".pub"
                 mkdirs(vfs, "/home/bandit0/.ssh")
                 val pubKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7z9X2k3f8qR5mN1vYpLbT" +
                     "cWdHs6jK0xAe4uGhRnMcVfNpOiS3tB7aRkLdYm8fWqZv0hXjK9pA2bC4nM6" +
                     "dFgH8iJkL1oP3qR5sT7uV9wX0yZ2aB4cD6eF8gH0iJ ${password38}@linuxquest"
                 vfs.createFile(
-                    "/home/bandit0/.ssh/id_rsa.pub",
+                    "/home/bandit0/.ssh/$keyFileName",
                     (pubKey + "\n").toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/.ssh/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, output -> output.contains(password38) },
             teachingPoints = listOf(
@@ -408,19 +450,25 @@ fun createAdvancedDataLevels(): List<Level> {
                 "Try: curl http://localhost:8080/secret — or read server_response.txt"
             ),
             password = password39,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val responseFile = r.randomFileNameWithExt()
+                val readmeFile = r.randomFileNameWithExt()
                 vfs.createFile(
-                    "/home/bandit0/server_response.txt",
+                    "/home/bandit0/$responseFile",
                     (password39 + "\n").toByteArray(),
                     Permissions.fromOctal(644)
                 )
                 vfs.createFile(
-                    "/home/bandit0/readme.txt",
+                    "/home/bandit0/$readmeFile",
                     ("A web server is running locally.\n" +
                         "Use 'curl http://localhost:8080/secret' to fetch the password.\n" +
-                        "Alternatively, the cached response is in server_response.txt\n").toByteArray(),
+                        "Alternatively, the cached response is in $responseFile\n").toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
+                }
             },
             validateCompletion = { _, output -> output.contains(password39) },
             teachingPoints = listOf(

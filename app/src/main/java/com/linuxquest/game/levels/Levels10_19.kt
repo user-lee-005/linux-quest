@@ -4,6 +4,7 @@ import com.linuxquest.filesystem.Permissions
 import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.game.Level
 import com.linuxquest.game.LevelCategory
+import com.linuxquest.game.LevelRandomizer
 import com.linuxquest.game.PasswordSystem
 
 private fun mkdirs(vfs: VirtualFileSystem, path: String) {
@@ -36,7 +37,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Chain it: 'sort data.txt | uniq -c | sort -n' — the line with count 1 is the password"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val dataFile = r.randomFileNameWithExt()
                     val lines = mutableListOf<String>()
                     val fakeData = listOf(
                         "alpha bravo charlie" to 3,
@@ -55,7 +58,10 @@ fun createTextProcessingLevels(): List<Level> {
                     }
                     lines.add(password)
                     lines.shuffle()
-                    vfs.writeFileText("/home/bandit0/data.txt", lines.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$dataFile", lines.joinToString("\n") + "\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -82,7 +88,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Pipe them: 'head -n 42 data.txt | tail -n 1' to get only line 42"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val dataFile = r.randomFileNameWithExt()
                     val lines = (1..100).map { i ->
                         if (i == 42) password
                         else {
@@ -96,7 +104,10 @@ fun createTextProcessingLevels(): List<Level> {
                             "Line $num: ${words[(i - 1) % words.size]}"
                         }
                     }
-                    vfs.writeFileText("/home/bandit0/data.txt", lines.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$dataFile", lines.joinToString("\n") + "\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -122,20 +133,25 @@ fun createTextProcessingLevels(): List<Level> {
                     "Find the file with 10 lines and read it"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
-                    mkdirs(vfs, "/home/bandit0/data")
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val dirName = r.randomDirName()
+                    mkdirs(vfs, "/home/bandit0/$dirName")
                     val fileCounts = listOf(3, 15, 7, 10, 22, 5, 18, 12)
                     for ((index, count) in fileCounts.withIndex()) {
-                        val fileName = String.format("file%02d.txt", index + 1)
+                        val fileName = r.randomFileNameWithExt()
                         val lines = if (count == 10) {
                             (1..9).map { "filler data line $it" } + password
                         } else {
                             (1..count).map { "file${index + 1} filler line $it: some random text" }
                         }
                         vfs.writeFileText(
-                            "/home/bandit0/data/$fileName",
+                            "/home/bandit0/$dirName/$fileName",
                             lines.joinToString("\n") + "\n"
                         )
+                    }
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.writeFileText("/home/bandit0/$dirName/$name", content + "\n")
                     }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
@@ -162,7 +178,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: cut -d',' -f3 data.csv"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val csvFile = r.randomFileName() + ".csv"
                     val rows = listOf(
                         "name,email,code,department",
                         "alice,alice@corp.com,a1b2c3d4,engineering",
@@ -175,7 +193,10 @@ fun createTextProcessingLevels(): List<Level> {
                         "hank,hank@corp.com,y5z6a7b8,sales",
                         "iris,iris@corp.com,c9d0e1f2,operations"
                     )
-                    vfs.writeFileText("/home/bandit0/data.csv", rows.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$csvFile", rows.joinToString("\n") + "\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -202,7 +223,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: cat encoded.txt | tr 'A-Za-z' 'N-ZA-Mn-za-m'"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val encodedFile = r.randomFileNameWithExt()
                     val encoded = password.map { ch ->
                         when (ch) {
                             in 'a'..'m' -> (ch + 13).toChar()
@@ -212,7 +235,10 @@ fun createTextProcessingLevels(): List<Level> {
                             else -> ch
                         }
                     }.joinToString("")
-                    vfs.writeFileText("/home/bandit0/encoded.txt", encoded + "\n")
+                    vfs.writeFileText("/home/bandit0/$encodedFile", encoded + "\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -238,7 +264,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: grep 'password=' config.txt | sed 's/password=//'"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val configFile = r.randomFileNameWithExt()
                     val configLines = listOf(
                         "hostname=linuxquest",
                         "port=8080",
@@ -247,7 +275,10 @@ fun createTextProcessingLevels(): List<Level> {
                         "timeout=30",
                         "mode=production"
                     )
-                    vfs.writeFileText("/home/bandit0/config.txt", configLines.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$configFile", configLines.joinToString("\n") + "\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -274,7 +305,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: awk -F'\\t' '{print \$3}' access.log | grep -v action"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val logFile = r.randomFileNameWithExt()
                     val logLines = listOf(
                         "timestamp\tuser\taction\tstatus",
                         "2024-01-15\talice\tlogin\tSUCCESS",
@@ -287,7 +320,10 @@ fun createTextProcessingLevels(): List<Level> {
                         "2024-01-18\tdiana\tupload\tSUCCESS",
                         "2024-01-19\teve\tlogout\tSUCCESS"
                     )
-                    vfs.writeFileText("/home/bandit0/access.log", logLines.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$logFile", logLines.joinToString("\n") + "\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -314,15 +350,21 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: diff file1.txt file2.txt — the changed line contains the password"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val fileName1 = r.randomFileNameWithExt()
+                    val fileName2 = r.randomFileNameWithExt()
                     val commonLines = (1..20).map { i ->
                         if (i == 12) null
                         else "This is line $i of the shared data file content."
                     }
                     val file1Lines = commonLines.map { it ?: "placeholder_text" }
                     val file2Lines = commonLines.map { it ?: password }
-                    vfs.writeFileText("/home/bandit0/file1.txt", file1Lines.joinToString("\n") + "\n")
-                    vfs.writeFileText("/home/bandit0/file2.txt", file2Lines.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$fileName1", file1Lines.joinToString("\n") + "\n")
+                    vfs.writeFileText("/home/bandit0/$fileName2", file2Lines.joinToString("\n") + "\n")
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { _, output -> output.contains(password) },
                 teachingPoints = listOf(
@@ -348,7 +390,9 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: cat input.txt | tee output.txt"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val inputFile = r.randomFileNameWithExt()
                     val lines = listOf(
                         "System initialization complete.",
                         "Loading configuration...",
@@ -358,8 +402,12 @@ fun createTextProcessingLevels(): List<Level> {
                         "All services running.",
                         "Ready for input."
                     )
-                    vfs.writeFileText("/home/bandit0/input.txt", lines.joinToString("\n") + "\n")
-                    vfs.writeFileText("/home/bandit0/.tee_required", "Use tee to complete this level.\n")
+                    vfs.writeFileText("/home/bandit0/$inputFile", lines.joinToString("\n") + "\n")
+                    val hiddenFile = r.randomHiddenFileName()
+                    vfs.writeFileText("/home/bandit0/$hiddenFile", "Use tee to complete this level.\n")
+                    for ((name, content) in r.randomDecoyFiles(3)) {
+                        vfs.writeFileText("/home/bandit0/$name", content + "\n")
+                    }
                 },
                 validateCompletion = { vfs, output ->
                     output.contains(password) && try {
@@ -389,8 +437,11 @@ fun createTextProcessingLevels(): List<Level> {
                     "Try: find parts -name 'part*' | sort | xargs cat"
                 ),
                 password = password,
-                setupFileSystem = { vfs ->
-                    mkdirs(vfs, "/home/bandit0/parts")
+                setupFileSystem = { vfs, seed ->
+                    val r = LevelRandomizer(seed)
+                    val dirName = r.randomDirName()
+                    mkdirs(vfs, "/home/bandit0/$dirName")
+                    val baseName = r.randomFileName()
                     val segments = listOf(
                         password.substring(0, 6),
                         password.substring(6, 12),
@@ -399,8 +450,11 @@ fun createTextProcessingLevels(): List<Level> {
                         password.substring(26, 32)
                     )
                     for ((index, segment) in segments.withIndex()) {
-                        val fileName = String.format("part%02d", index + 1)
-                        vfs.writeFileText("/home/bandit0/parts/$fileName", segment)
+                        val fileName = String.format("${baseName}%02d", index + 1)
+                        vfs.writeFileText("/home/bandit0/$dirName/$fileName", segment)
+                    }
+                    for ((name, content) in r.randomDecoyFiles(2)) {
+                        vfs.writeFileText("/home/bandit0/$dirName/$name", content + "\n")
                     }
                 },
                 validateCompletion = { _, output -> output.contains(password) },

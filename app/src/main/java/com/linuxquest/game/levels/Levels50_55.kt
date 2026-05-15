@@ -4,6 +4,7 @@ import com.linuxquest.filesystem.Permissions
 import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.game.Level
 import com.linuxquest.game.LevelCategory
+import com.linuxquest.game.LevelRandomizer
 import com.linuxquest.game.PasswordSystem
 import java.util.Base64
 
@@ -37,7 +38,10 @@ fun createMasterLevels(): List<Level> {
             description = "Analyze the web server access log to find which IP accessed /secret the most. The password is in that IP's session file.",
             briefing = "Log analysis is a critical skill for system administrators and security analysts. Real investigations start with parsing logs.",
             password = password50,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val sessionsDir = r.randomDirName()
+
                 val accessLog = buildString {
                     appendLine("""192.168.1.10 - - [15/Jan/2024:10:00:01] "GET /index.html HTTP/1.1" 200 1024""")
                     appendLine("""192.168.1.20 - - [15/Jan/2024:10:00:02] "GET /about HTTP/1.1" 200 512""")
@@ -72,11 +76,15 @@ fun createMasterLevels(): List<Level> {
                 }
                 vfs.createFile("/var/log/access.log", accessLog.toByteArray())
 
-                mkdirs(vfs, "/home/bandit0/sessions")
-                vfs.createFile("/home/bandit0/sessions/192.168.1.10.txt", "Session data: normal user activity".toByteArray())
-                vfs.createFile("/home/bandit0/sessions/10.0.0.5.txt", password50.toByteArray())
-                vfs.createFile("/home/bandit0/sessions/192.168.1.20.txt", "Session data: browsing activity".toByteArray())
-                vfs.createFile("/home/bandit0/sessions/192.168.1.30.txt", "Session data: single access".toByteArray())
+                mkdirs(vfs, "/home/bandit0/$sessionsDir")
+                vfs.createFile("/home/bandit0/$sessionsDir/192.168.1.10.txt", "Session data: normal user activity".toByteArray())
+                vfs.createFile("/home/bandit0/$sessionsDir/10.0.0.5.txt", password50.toByteArray())
+                vfs.createFile("/home/bandit0/$sessionsDir/192.168.1.20.txt", "Session data: browsing activity".toByteArray())
+                vfs.createFile("/home/bandit0/$sessionsDir/192.168.1.30.txt", "Session data: single access".toByteArray())
+
+                for ((name, content) in r.randomDecoyFiles(3)) {
+                    vfs.createFile("/home/bandit0/$sessionsDir/$name", content.toByteArray())
+                }
             },
             validateCompletion = { _, output -> output.contains(password50) },
             hints = listOf(
@@ -100,7 +108,10 @@ fun createMasterLevels(): List<Level> {
             description = "Find the suspicious process in the process list. Its command arguments contain the password.",
             briefing = "Monitoring running processes is essential for system health and security. A rogue process might leak sensitive data in its command-line arguments.",
             password = password51,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val psFileName = r.randomFileNameWithExt()
+
                 val psOutput = buildString {
                     appendLine("USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND")
                     appendLine("root         1  0.0  0.1   1234   567 ?        Ss   10:00   0:01 /sbin/init")
@@ -110,7 +121,11 @@ fun createMasterLevels(): List<Level> {
                     appendLine("root       666 99.0  0.1   9999   333 ?        R    10:05   0:00 /tmp/.hidden/backdoor --key=$password51")
                     appendLine("bandit0    789  0.0  0.0    500   100 pts/0    R+   10:10   0:00 ps aux")
                 }
-                vfs.createFile("/home/bandit0/ps_output.txt", psOutput.toByteArray())
+                vfs.createFile("/home/bandit0/$psFileName", psOutput.toByteArray())
+
+                for ((name, content) in r.randomDecoyFiles(3)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                }
             },
             validateCompletion = { _, output -> output.contains(password51) },
             hints = listOf(
@@ -134,7 +149,10 @@ fun createMasterLevels(): List<Level> {
             description = "Parse the nmap scan results to find the open port running an unusual service. The service banner contains the password.",
             briefing = "Network reconnaissance with nmap reveals open ports and services. Analyzing scan results is fundamental to network security assessment.",
             password = password52,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val scanFileName = r.randomFileNameWithExt()
+
                 val scanResults = buildString {
                     appendLine("Starting Nmap 7.94 ( https://nmap.org )")
                     appendLine("Nmap scan report for target.linuxquest.local (10.10.10.1)")
@@ -152,7 +170,11 @@ fun createMasterLevels(): List<Level> {
                     appendLine("Service detection performed.")
                     appendLine("Nmap done: 1 IP address (1 host up) scanned in 12.34 seconds")
                 }
-                vfs.createFile("/home/bandit0/scan_results.txt", scanResults.toByteArray())
+                vfs.createFile("/home/bandit0/$scanFileName", scanResults.toByteArray())
+
+                for ((name, content) in r.randomDecoyFiles(3)) {
+                    vfs.createFile("/home/bandit0/$name", content.toByteArray())
+                }
             },
             validateCompletion = { _, output -> output.contains(password52) },
             hints = listOf(
@@ -176,45 +198,58 @@ fun createMasterLevels(): List<Level> {
             description = "Find world-writable files and SUID binaries to locate the password.",
             briefing = "Security auditing involves finding misconfigurations. World-writable files and unauthorized SUID binaries are common security risks.",
             password = password53,
-            setupFileSystem = { vfs ->
-                mkdirs(vfs, "/home/bandit0/system/bin")
-                mkdirs(vfs, "/home/bandit0/system/data")
-                mkdirs(vfs, "/home/bandit0/system/tmp")
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val sysDir = r.randomDirName()
+                val binDir = r.randomDirName()
+                val dataDir = r.randomDirName()
+                val tmpDir = r.randomDirName()
+
+                val normalAppName = r.randomFileName()
+                val suidName = r.randomFileName()
+                val configName = r.randomFileNameWithExt()
+                val writableName = r.randomFileNameWithExt()
+                val readonlyName = r.randomFileNameWithExt()
+                val decoyName = r.randomFileNameWithExt()
+
+                mkdirs(vfs, "/home/bandit0/$sysDir/$binDir")
+                mkdirs(vfs, "/home/bandit0/$sysDir/$dataDir")
+                mkdirs(vfs, "/home/bandit0/$sysDir/$tmpDir")
 
                 vfs.createFile(
-                    "/home/bandit0/system/bin/normal_app",
+                    "/home/bandit0/$sysDir/$binDir/$normalAppName",
                     "Normal application".toByteArray(),
                     Permissions.fromOctal(755)
                 )
-                vfs.chown("/home/bandit0/system/bin/normal_app", "root", "root")
+                vfs.chown("/home/bandit0/$sysDir/$binDir/$normalAppName", "root", "root")
 
                 vfs.createFile(
-                    "/home/bandit0/system/bin/suspicious_suid",
+                    "/home/bandit0/$sysDir/$binDir/$suidName",
                     "SUID binary: look at world-writable files".toByteArray(),
                     Permissions.fromOctal(4755)
                 )
-                vfs.chown("/home/bandit0/system/bin/suspicious_suid", "root", "root")
+                vfs.chown("/home/bandit0/$sysDir/$binDir/$suidName", "root", "root")
 
                 vfs.createFile(
-                    "/home/bandit0/system/data/config.txt",
+                    "/home/bandit0/$sysDir/$dataDir/$configName",
                     "Normal config".toByteArray(),
                     Permissions.fromOctal(644)
                 )
 
                 vfs.createFile(
-                    "/home/bandit0/system/data/world_writable.txt",
+                    "/home/bandit0/$sysDir/$dataDir/$writableName",
                     password53.toByteArray(),
                     Permissions.fromOctal(666)
                 )
 
                 vfs.createFile(
-                    "/home/bandit0/system/data/readonly.txt",
+                    "/home/bandit0/$sysDir/$dataDir/$readonlyName",
                     "Read only data".toByteArray(),
                     Permissions.fromOctal(444)
                 )
 
                 vfs.createFile(
-                    "/home/bandit0/system/tmp/notes.txt",
+                    "/home/bandit0/$sysDir/$tmpDir/$decoyName",
                     "Decoy".toByteArray(),
                     Permissions.fromOctal(777)
                 )
@@ -223,7 +258,7 @@ fun createMasterLevels(): List<Level> {
             hints = listOf(
                 "Look for files with insecure permissions",
                 "Find world-writable files: find . -perm -o+w -type f",
-                "The world-writable file in system/data/ contains the password"
+                "The world-writable file in the data subdirectory contains the password"
             ),
             teachingPoints = listOf(
                 "Finding world-writable files",
@@ -241,8 +276,12 @@ fun createMasterLevels(): List<Level> {
             description = "Process multiple data files: find the ones with 'VALID' marker, extract their codes, and combine them to get the password.",
             briefing = "Real system administration requires chaining multiple operations. This challenge combines everything you've learned into an automated workflow.",
             password = password54,
-            setupFileSystem = { vfs ->
-                mkdirs(vfs, "/home/bandit0/inbox")
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
+                val inboxDir = r.randomDirName()
+                val prefix = r.randomFileName()
+
+                mkdirs(vfs, "/home/bandit0/$inboxDir")
 
                 val seg1 = password54.substring(0, 8)
                 val seg2 = password54.substring(8, 16)
@@ -250,14 +289,14 @@ fun createMasterLevels(): List<Level> {
                 val seg4 = password54.substring(24, 32)
 
                 val files = listOf(
-                    Triple("msg_01.txt", "INVALID", "a1b2c3d4"),
-                    Triple("msg_02.txt", "VALID", seg1),
-                    Triple("msg_03.txt", "INVALID", "deadbeef"),
-                    Triple("msg_04.txt", "VALID", seg2),
-                    Triple("msg_05.txt", "VALID", seg3),
-                    Triple("msg_06.txt", "INVALID", "f00dcafe"),
-                    Triple("msg_07.txt", "VALID", seg4),
-                    Triple("msg_08.txt", "INVALID", "12345678")
+                    Triple("${prefix}_01.txt", "INVALID", "a1b2c3d4"),
+                    Triple("${prefix}_02.txt", "VALID", seg1),
+                    Triple("${prefix}_03.txt", "INVALID", "deadbeef"),
+                    Triple("${prefix}_04.txt", "VALID", seg2),
+                    Triple("${prefix}_05.txt", "VALID", seg3),
+                    Triple("${prefix}_06.txt", "INVALID", "f00dcafe"),
+                    Triple("${prefix}_07.txt", "VALID", seg4),
+                    Triple("${prefix}_08.txt", "INVALID", "12345678")
                 )
 
                 for ((name, status, code) in files) {
@@ -266,13 +305,13 @@ fun createMasterLevels(): List<Level> {
                         appendLine("Code: $code")
                         appendLine("Timestamp: 2024-01-15T10:00:00")
                     }
-                    vfs.createFile("/home/bandit0/inbox/$name", content.toByteArray())
+                    vfs.createFile("/home/bandit0/$inboxDir/$name", content.toByteArray())
                 }
             },
             validateCompletion = { _, output -> output.contains(password54) },
             hints = listOf(
                 "Check each file's Status field — only VALID messages matter",
-                "Extract the Code from VALID files: grep -l 'VALID' inbox/* | sort | xargs grep 'Code:'",
+                "Extract the Code from VALID files: grep -l 'VALID' <dir>/* | sort | xargs grep 'Code:'",
                 "Combine the codes in order from the VALID files"
             ),
             teachingPoints = listOf(
@@ -291,31 +330,48 @@ fun createMasterLevels(): List<Level> {
             description = "The ultimate challenge: decode a multi-layer puzzle combining file navigation, text processing, permissions, and scripting.",
             briefing = "Congratulations on reaching the final challenge! This level combines everything you've learned. Multiple steps, multiple techniques — prove you've mastered the Linux command line.",
             password = password55,
-            setupFileSystem = { vfs ->
+            setupFileSystem = { vfs, seed ->
+                val r = LevelRandomizer(seed)
                 val firstHalf = password55.substring(0, 16)
                 val secondHalf = password55.substring(16)
 
+                val startFile = r.randomFileNameWithExt()
+                val stage1Dir = r.randomDirName()
+                val clueFile = r.randomHiddenFileName()
+                val stage2Dir = r.randomDirName()
+                val encodedFile = r.randomFileNameWithExt()
+                val stage3Dir = r.randomDirName()
+                val logFile = r.randomFileNameWithExt()
+                val stage4Dir = r.randomDirName()
+                val lockedFile = r.randomFileNameWithExt()
+
                 // Stage 1: starting clue
                 vfs.createFile(
-                    "/home/bandit0/start.txt",
-                    "The journey begins. Check /home/bandit0/stage1/ for the first clue.".toByteArray()
+                    "/home/bandit0/$startFile",
+                    "The journey begins. Check /home/bandit0/$stage1Dir/ for the first clue.".toByteArray()
                 )
 
                 // Stage 2: hidden file with base64 hint
-                mkdirs(vfs, "/home/bandit0/stage1")
+                mkdirs(vfs, "/home/bandit0/$stage1Dir")
                 vfs.createFile(
-                    "/home/bandit0/stage1/.clue",
-                    "The next piece is encoded in base64 in /home/bandit0/stage2/encoded.txt".toByteArray()
+                    "/home/bandit0/$stage1Dir/$clueFile",
+                    "The next piece is encoded in base64 in /home/bandit0/$stage2Dir/$encodedFile".toByteArray()
                 )
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$stage1Dir/$name", content.toByteArray())
+                }
 
                 // Stage 3: base64-encoded pointer to stage3
-                mkdirs(vfs, "/home/bandit0/stage2")
-                val stage2Message = "Look in /home/bandit0/stage3/data.log for the line with FINAL marker"
+                mkdirs(vfs, "/home/bandit0/$stage2Dir")
+                val stage2Message = "Look in /home/bandit0/$stage3Dir/$logFile for the line with FINAL marker"
                 val encoded = Base64.getEncoder().encodeToString(stage2Message.toByteArray())
-                vfs.createFile("/home/bandit0/stage2/encoded.txt", encoded.toByteArray())
+                vfs.createFile("/home/bandit0/$stage2Dir/$encodedFile", encoded.toByteArray())
+                for ((name, content) in r.randomDecoyFiles(2)) {
+                    vfs.createFile("/home/bandit0/$stage2Dir/$name", content.toByteArray())
+                }
 
                 // Stage 4: log file with first half and hint to stage4
-                mkdirs(vfs, "/home/bandit0/stage3")
+                mkdirs(vfs, "/home/bandit0/$stage3Dir")
                 val dataLog = buildString {
                     appendLine("2024-01-15 INFO System starting up")
                     appendLine("2024-01-15 DEBUG Loading configuration")
@@ -331,29 +387,29 @@ fun createMasterLevels(): List<Level> {
                     appendLine("2024-01-15 DEBUG Memory usage: 45%")
                     appendLine("2024-01-15 INFO Backup completed successfully")
                     appendLine("2024-01-15 WARN Certificate expires in 30 days")
-                    appendLine("2024-01-15 INFO remaining piece in /home/bandit0/stage4/locked.txt")
+                    appendLine("2024-01-15 INFO remaining piece in /home/bandit0/$stage4Dir/$lockedFile")
                     appendLine("2024-01-15 DEBUG Garbage collection: 12ms")
                     appendLine("2024-01-15 INFO Health check passed")
                     appendLine("2024-01-15 INFO Cron job executed: cleanup.sh")
                     appendLine("2024-01-15 DEBUG Network latency: 2ms")
                     appendLine("2024-01-15 INFO System status: nominal")
                 }
-                vfs.createFile("/home/bandit0/stage3/data.log", dataLog.toByteArray())
+                vfs.createFile("/home/bandit0/$stage3Dir/$logFile", dataLog.toByteArray())
 
                 // Stage 5: locked file with second half
-                mkdirs(vfs, "/home/bandit0/stage4")
+                mkdirs(vfs, "/home/bandit0/$stage4Dir")
                 vfs.createFile(
-                    "/home/bandit0/stage4/locked.txt",
+                    "/home/bandit0/$stage4Dir/$lockedFile",
                     secondHalf.toByteArray(),
                     Permissions.fromOctal(0)
                 )
-                vfs.chown("/home/bandit0/stage4/locked.txt", "bandit0", "bandit0")
+                vfs.chown("/home/bandit0/$stage4Dir/$lockedFile", "bandit0", "bandit0")
             },
             validateCompletion = { _, output -> output.contains(password55) },
             hints = listOf(
-                "Start with start.txt and follow the trail of clues",
+                "Start with the file in your home directory and follow the trail of clues",
                 "You'll need: cat, ls -a, base64 -d, grep, chmod",
-                "Stage 3 has half the password, stage 4 has the other half — combine them"
+                "One stage has half the password, the locked file has the other half — combine them"
             ),
             teachingPoints = listOf(
                 "Multi-step problem solving",

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.linuxquest.data.AppDatabase
 import com.linuxquest.data.entities.LevelProgress
 import com.linuxquest.game.LevelManager
+import com.linuxquest.game.XpSystem
 import com.linuxquest.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -162,6 +163,30 @@ fun LevelCompleteScreen(
                     StatRow("Commands used", "${prog.commandsUsed}")
                     StatRow("Hints used", "${prog.hintsUsed}/3")
                     StatRow("Time", formatTime(prog.timeTakenSeconds))
+
+                    HorizontalDivider(color = SubtleBorder, thickness = 1.dp)
+
+                    // XP earned
+                    val xpEarned = prog.xpEarned
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "XP earned",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "+$xpEarned XP",
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TerminalCyan
+                        )
+                    }
 
                     HorizontalDivider(color = SubtleBorder, thickness = 1.dp)
 

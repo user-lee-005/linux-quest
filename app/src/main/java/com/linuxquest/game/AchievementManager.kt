@@ -29,7 +29,14 @@ class AchievementManager(
         AchievementDef("root_access", "Root Access", "Complete all permission levels", "\uD83D\uDD10"),
         AchievementDef("script_kiddie", "Script Kiddie", "Complete your first scripting level", "\uD83D\uDCDC"),
         AchievementDef("script_master", "Script Master", "Complete all scripting levels", "\uD83E\uDDD9"),
-        AchievementDef("hacker", "Elite Hacker", "Complete all master challenges", "\uD83D\uDC80")
+        AchievementDef("hacker", "Elite Hacker", "Complete all master challenges", "\uD83D\uDC80"),
+        // Rank badges
+        AchievementDef("rank_apprentice", "Apprentice", "Reach Apprentice rank (500 XP)", "\uD83D\uDD30"),
+        AchievementDef("rank_explorer", "Explorer", "Reach Explorer rank (1500 XP)", "\uD83E\uDDED"),
+        AchievementDef("rank_hacker", "Hacker", "Reach Hacker rank (3500 XP)", "\uD83D\uDCBB"),
+        AchievementDef("rank_sysadmin", "Sysadmin", "Reach Sysadmin rank (7000 XP)", "\uD83D\uDDA5\uFE0F"),
+        AchievementDef("rank_root", "Root User", "Reach Root User rank (12000 XP)", "\uD83D\uDD10"),
+        AchievementDef("rank_master", "Linux Master", "Reach Linux Master rank (18000 XP)", "\uD83D\uDC51")
     )
 
     suspend fun initAchievements() {
@@ -49,7 +56,8 @@ class AchievementManager(
         levelId: Int,
         hintsUsed: Int,
         timeSeconds: Long,
-        totalCompleted: Int
+        totalCompleted: Int,
+        totalXp: Int = 0
     ) {
         val now = System.currentTimeMillis()
 
@@ -69,6 +77,14 @@ class AchievementManager(
         if (levelId in 50..55 && allCompleted(50..55)) unlock("hacker", now)
 
         if (countThreeStarLevels() >= 10) unlock("perfectionist", now)
+
+        // Rank badges
+        if (totalXp >= 500) unlock("rank_apprentice", now)
+        if (totalXp >= 1500) unlock("rank_explorer", now)
+        if (totalXp >= 3500) unlock("rank_hacker", now)
+        if (totalXp >= 7000) unlock("rank_sysadmin", now)
+        if (totalXp >= 12000) unlock("rank_root", now)
+        if (totalXp >= 18000) unlock("rank_master", now)
     }
 
     fun getAllAchievements(): Flow<List<Achievement>> {

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,11 +22,13 @@ import androidx.compose.ui.unit.sp
 import com.linuxquest.data.AppDatabase
 import com.linuxquest.data.SettingsDataStore
 import com.linuxquest.data.entities.LevelProgress
+import com.linuxquest.data.entities.UserProfile
 import com.linuxquest.filesystem.VirtualFileSystem
 import com.linuxquest.game.HintSystem
 import com.linuxquest.game.Level
 import com.linuxquest.game.LevelManager
 import com.linuxquest.game.LevelValidator
+import com.linuxquest.game.XpSystem
 import com.linuxquest.shell.ShellInterpreter
 import com.linuxquest.terminal.KeyboardHandler
 import com.linuxquest.terminal.LineType
@@ -109,14 +112,28 @@ fun GameScreen(
             },
             text = {
                 Text(
-                    text = "Progress will be lost. Are you sure?",
+                    text = "Your progress will be saved. You can resume later.",
                     fontFamily = FontFamily.Monospace,
                     color = TextSecondary
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showExitDialog = false; onBack() }) {
-                    Text("LEAVE", fontFamily = FontFamily.Monospace, color = TerminalRed)
+                TextButton(onClick = {
+                    showExitDialog = false
+                    scope.launch {
+                        db.progressDao().upsertProgress(
+                            LevelProgress(
+                                levelId = levelId,
+                                attempted = true,
+                                hintsUsed = hintsUsed,
+                                commandsUsed = commandsUsed
+                            )
+                        )
+                        db.progressDao().attemptLevel(levelId, hintsUsed, commandsUsed)
+                    }
+                    onBack()
+                }) {
+                    Text("SAVE & LEAVE", fontFamily = FontFamily.Monospace, color = TerminalYellow)
                 }
             },
             dismissButton = {
@@ -131,30 +148,62 @@ fun GameScreen(
 
     // Hint dialog
     if (showHintDialog) {
-        val hint = remember(hintsUsed) { hintSystem.getNextHint(level) }
-        if (hint != null) {
-            hintsUsed = hintSystem.getHintsUsed()
+        val revealedHints = remember { mutableStateListOf<String>() }
+        LaunchedEffect(showHintDialog) {
+            if (revealedHints.isEmpty()) {
+                // Reveal hints up to current count
+                repeat(hintsUsed) { i ->
+                    if (i < level.hints.size) revealedHints.add(level.hints[i])
+                }
+            }
+            // Reveal next hint
+            val nextHint = hintSystem.getNextHint(level)
+            if (nextHint != null && !revealedHints.contains(nextHint)) {
+                revealedHints.add(nextHint)
+                hintsUsed = hintSystem.getHintsUsed()
+            }
         }
         AlertDialog(
             onDismissRequest = { showHintDialog = false },
             title = {
                 Text(
-                    text = "\uD83D\uDCA1 Hint ${hintSystem.getHintsUsed()}/${level.hints.size}",
+                    text = "\uD83D\uDCA1 Hints (${hintsUsed}/${level.hints.size})",
                     fontFamily = FontFamily.Monospace,
                     color = TerminalYellow
                 )
             },
             text = {
-                Text(
-                    text = hint ?: "No more hints available!",
-                    fontFamily = FontFamily.Monospace,
-                    color = if (hint != null) TextPrimary else TextMuted,
-                    fontSize = 14.sp
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (revealedHints.isEmpty()) {
+                        Text(
+                            text = "No more hints available!",
+                            fontFamily = FontFamily.Monospace,
+                            color = TextMuted,
+                            fontSize = 14.sp
+                        )
+                    } else {
+                        revealedHints.forEachIndexed { idx, hint ->
+                            Text(
+                                text = "${idx + 1}. $hint",
+                                fontFamily = FontFamily.Monospace,
+                                color = if (idx == revealedHints.lastIndex) TerminalYellow else TextPrimary,
+                                fontSize = 14.sp
+                            )
+                        }
+                        if (hintSystem.hasMoreHints(level)) {
+                            Text(
+                                text = "Tap \uD83D\uDCA1 again for more hints",
+                                fontFamily = FontFamily.Monospace,
+                                color = TextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = { showHintDialog = false }) {
-                    Text("OK", fontFamily = FontFamily.Monospace, color = TerminalCyan)
+                    Text("GOT IT", fontFamily = FontFamily.Monospace, color = TerminalCyan)
                 }
             },
             containerColor = CardSurface,
@@ -286,8 +335,13 @@ fun GameScreen(
                     if (validator.checkCompletion(level, vfs, output)) {
                         val elapsed = (System.currentTimeMillis() - startTime) / 1000
                         val stars = calculateStars(hintsUsed, commandsUsed, elapsed)
+                        val xp = XpSystem.calculateXp(stars, hintsUsed, elapsed)
 
                         scope.launch {
+                            val xpSystem = XpSystem(db.progressDao())
+                            db.progressDao().upsertProgress(
+                                LevelProgress(levelId = levelId, attempted = true)
+                            )
                             db.progressDao().completeLevel(
                                 levelId = levelId,
                                 password = level.password,
@@ -295,8 +349,10 @@ fun GameScreen(
                                 hints = hintsUsed,
                                 commands = commandsUsed,
                                 time = elapsed,
-                                completedAt = System.currentTimeMillis()
+                                completedAt = System.currentTimeMillis(),
+                                xp = xp
                             )
+                            xpSystem.awardXp(xp)
                             onLevelComplete(level.password)
                         }
                     }
