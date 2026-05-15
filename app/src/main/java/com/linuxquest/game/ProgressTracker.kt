@@ -18,7 +18,7 @@ class ProgressTracker(private val progressDao: ProgressDao) {
         if (existing != null && existing.completed && existing.stars >= stars) {
             return
         }
-        progressDao.upsertProgress(LevelProgress(levelId = levelId))
+        progressDao.ensureLevelExists(levelId)
         progressDao.completeLevel(
             levelId = levelId,
             password = password,

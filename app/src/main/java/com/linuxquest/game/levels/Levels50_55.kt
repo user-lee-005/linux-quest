@@ -90,7 +90,7 @@ fun createMasterLevels(): List<Level> {
             hints = listOf(
                 "Analyze /var/log/access.log for requests to /secret",
                 "Use grep and awk to count IPs: grep '/secret' /var/log/access.log | awk '{print \$1}' | sort | uniq -c | sort -rn",
-                "The top IP is 10.0.0.5 — check its session file"
+                "Find the IP with the most /secret requests, then look for its session file in the sessions directory"
             ),
             teachingPoints = listOf(
                 "Apache log format analysis",

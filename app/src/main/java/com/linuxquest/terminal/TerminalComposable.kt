@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,36 +69,38 @@ fun TerminalView(
             .background(DeepNavy)
             .imePadding()
     ) {
-        // Terminal output area
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .clickable {
-                    focusRequester.requestFocus()
-                    keyboardController?.show()
+        // Terminal output area — wrapped in SelectionContainer for long-press copy
+        SelectionContainer {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .clickable {
+                        focusRequester.requestFocus()
+                        keyboardController?.show()
+                    }
+            ) {
+                items(terminalState.lines.toList()) { line ->
+                    TerminalLineRow(line = line, fontSize = fontSize)
                 }
-        ) {
-            items(terminalState.lines.toList()) { line ->
-                TerminalLineRow(line = line, fontSize = fontSize)
-            }
 
-            // Current input line
-            item {
-                CurrentInputLine(
-                    prompt = prompt,
-                    terminalState = terminalState,
-                    fontSize = fontSize,
-                    focusRequester = focusRequester,
-                    onSubmit = { cmd ->
-                        onSubmitCommand(cmd)
-                    },
-                    onHistoryUp = { terminalState.historyUp() },
-                    onHistoryDown = { terminalState.historyDown() },
-                    onTabComplete = onTabComplete
-                )
+                // Current input line
+                item {
+                    CurrentInputLine(
+                        prompt = prompt,
+                        terminalState = terminalState,
+                        fontSize = fontSize,
+                        focusRequester = focusRequester,
+                        onSubmit = { cmd ->
+                            onSubmitCommand(cmd)
+                        },
+                        onHistoryUp = { terminalState.historyUp() },
+                        onHistoryDown = { terminalState.historyDown() },
+                        onTabComplete = onTabComplete
+                    )
+                }
             }
         }
 

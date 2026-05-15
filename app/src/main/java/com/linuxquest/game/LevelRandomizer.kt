@@ -88,6 +88,24 @@ class LevelRandomizer(seed: Long) {
         }
     }
 
+    fun randomFileNameWithKeyword(keyword: String): String {
+        return if (rng.nextBoolean()) {
+            val adj = adjectives[rng.nextInt(adjectives.size)]
+            "${adj}_$keyword"
+        } else {
+            val noun = fileNouns[rng.nextInt(fileNouns.size)]
+            "${keyword}_$noun"
+        }
+    }
+
+    fun randomFileNameWithKeywordAndExt(keyword: String): String {
+        return randomFileNameWithKeyword(keyword) + extensions[rng.nextInt(extensions.size)]
+    }
+
+    fun randomHiddenFileNameWithKeyword(keyword: String): String {
+        return ".${randomFileNameWithKeyword(keyword)}"
+    }
+
     fun nextInt(bound: Int): Int = rng.nextInt(bound)
     fun nextInt(from: Int, until: Int): Int = rng.nextInt(from, until)
 }

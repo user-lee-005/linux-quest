@@ -14,7 +14,9 @@ data class LevelProgress(
     val timeTakenSeconds: Long = 0,
     val password: String? = null,
     val completedAt: Long? = null,
-    val xpEarned: Int = 0
+    val xpEarned: Int = 0,
+    val terminalHistory: String? = null,
+    val commandHistory: String? = null
 )
 
 @Entity(tableName = "achievements")

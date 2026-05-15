@@ -429,19 +429,19 @@ fun createTextProcessingLevels(): List<Level> {
                 id = 19,
                 title = "Build Commands",
                 category = LevelCategory.TEXT_PROCESSING,
-                description = "A directory contains numbered files (part01 through part05). Concatenate them in order to reveal the password.",
+                description = "A directory contains numbered files with 'part' in their name. Concatenate them in order to reveal the password.",
                 briefing = "The xargs command builds and executes commands from standard input. Combined with find and sort, it's a powerful way to process multiple files.",
                 hints = listOf(
-                    "The password is split across multiple numbered files",
-                    "You need to concatenate them in the correct order",
-                    "Try: find parts -name 'part*' | sort | xargs cat"
+                    "The password is split across multiple numbered files containing 'part' in the name",
+                    "Use 'ls' to find the directory, then look for files with 'part' in the name",
+                    "Try: find <dir> -name '*part*' | sort | xargs cat"
                 ),
                 password = password,
                 setupFileSystem = { vfs, seed ->
                     val r = LevelRandomizer(seed)
                     val dirName = r.randomDirName()
                     mkdirs(vfs, "/home/bandit0/$dirName")
-                    val baseName = r.randomFileName()
+                    val baseName = r.randomFileNameWithKeyword("part")
                     val segments = listOf(
                         password.substring(0, 6),
                         password.substring(6, 12),

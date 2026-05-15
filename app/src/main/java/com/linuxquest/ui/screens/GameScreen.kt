@@ -15,10 +15,13 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.linuxquest.data.AppDatabase
 import com.linuxquest.data.SettingsDataStore
 import com.linuxquest.data.entities.LevelProgress
@@ -67,18 +70,65 @@ fun GameScreen(
     var objectiveExpanded by remember { mutableStateOf(true) }
     var showExitDialog by remember { mutableStateOf(false) }
     var showHintDialog by remember { mutableStateOf(false) }
+    var levelCompleted by remember { mutableStateOf(false) }
 
-    // Setup level on mount
+    // Save current level to DataStore
+    LaunchedEffect(levelId) {
+        settings.setCurrentLevel(levelId)
+    }
+
+    // Setup level on mount + restore session if available
     LaunchedEffect(levelId) {
         level?.let { lv ->
             levelManager.setupLevel(lv, vfs)
-            terminalState.appendOutput(lv.briefing, LineType.SYSTEM)
-            terminalState.appendOutput("", LineType.OUTPUT)
-            terminalState.appendOutput(
-                "Type 'help' for available commands. Use the \uD83D\uDCA1 Hint button if you get stuck.",
-                LineType.INFO
-            )
-            terminalState.appendOutput("", LineType.OUTPUT)
+
+            // Check for saved session (incomplete levels only)
+            val existing = db.progressDao().getProgress(levelId)
+            val hasSession = existing != null && existing.attempted && !existing.completed
+                    && existing.terminalHistory != null
+
+            if (hasSession) {
+                terminalState.restoreLines(existing!!.terminalHistory!!)
+                existing.commandHistory?.let { terminalState.restoreCommandHistory(it) }
+                hintsUsed = existing.hintsUsed
+                commandsUsed = existing.commandsUsed
+                terminalState.appendOutput("", LineType.OUTPUT)
+                terminalState.appendOutput("── Session restored ──", LineType.SYSTEM)
+                terminalState.appendOutput("", LineType.OUTPUT)
+            } else {
+                terminalState.appendOutput(lv.briefing, LineType.SYSTEM)
+                terminalState.appendOutput("", LineType.OUTPUT)
+                terminalState.appendOutput(
+                    "Type 'help' for available commands. Use the \uD83D\uDCA1 Hint button if you get stuck.",
+                    LineType.INFO
+                )
+                terminalState.appendOutput("", LineType.OUTPUT)
+            }
+        }
+    }
+
+    // Auto-save on app background (ON_STOP) — only for incomplete levels
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && !levelCompleted) {
+                scope.launch {
+                    val existing = db.progressDao().getProgress(levelId)
+                    if (existing == null || !existing.completed) {
+                        db.progressDao().ensureLevelExists(levelId)
+                        db.progressDao().attemptLevel(levelId, hintsUsed, commandsUsed)
+                        db.progressDao().saveSessionState(
+                            levelId,
+                            terminalState.serializeLines(),
+                            terminalState.serializeCommandHistory()
+                        )
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -121,15 +171,18 @@ fun GameScreen(
                 TextButton(onClick = {
                     showExitDialog = false
                     scope.launch {
-                        db.progressDao().upsertProgress(
-                            LevelProgress(
-                                levelId = levelId,
-                                attempted = true,
-                                hintsUsed = hintsUsed,
-                                commandsUsed = commandsUsed
+                        val existing = db.progressDao().getProgress(levelId)
+                        if (existing == null || !existing.completed) {
+                            // Save progress + terminal state for incomplete levels
+                            db.progressDao().ensureLevelExists(levelId)
+                            db.progressDao().attemptLevel(levelId, hintsUsed, commandsUsed)
+                            db.progressDao().saveSessionState(
+                                levelId,
+                                terminalState.serializeLines(),
+                                terminalState.serializeCommandHistory()
                             )
-                        )
-                        db.progressDao().attemptLevel(levelId, hintsUsed, commandsUsed)
+                        }
+                        // Completed levels: skip save to protect highest score
                     }
                     onBack()
                 }) {
@@ -339,20 +392,31 @@ fun GameScreen(
 
                         scope.launch {
                             val xpSystem = XpSystem(db.progressDao())
-                            db.progressDao().upsertProgress(
-                                LevelProgress(levelId = levelId, attempted = true)
-                            )
-                            db.progressDao().completeLevel(
-                                levelId = levelId,
-                                password = level.password,
-                                stars = stars,
-                                hints = hintsUsed,
-                                commands = commandsUsed,
-                                time = elapsed,
-                                completedAt = System.currentTimeMillis(),
-                                xp = xp
-                            )
-                            xpSystem.awardXp(xp)
+                            val existing = db.progressDao().getProgress(levelId)
+                            val isNewCompletion = existing == null || !existing.completed
+                            val isBetterScore = existing == null || stars > existing.stars
+
+                            db.progressDao().ensureLevelExists(levelId)
+
+                            if (isNewCompletion || isBetterScore) {
+                                db.progressDao().completeLevel(
+                                    levelId = levelId,
+                                    password = level.password,
+                                    stars = stars,
+                                    hints = hintsUsed,
+                                    commands = commandsUsed,
+                                    time = elapsed,
+                                    completedAt = System.currentTimeMillis(),
+                                    xp = xp
+                                )
+                            }
+
+                            if (isNewCompletion) {
+                                xpSystem.awardXp(xp)
+                            } else if (isBetterScore) {
+                                val xpDiff = xp - (existing?.xpEarned ?: 0)
+                                if (xpDiff > 0) xpSystem.awardXp(xpDiff)
+                            }
 
                             // Check achievements
                             val completedCount = db.progressDao().getCompletedCountSync()
@@ -365,6 +429,10 @@ fun GameScreen(
                                 totalCompleted = completedCount,
                                 totalXp = profile.totalXp
                             )
+
+                            // Clear saved session state on completion
+                            db.progressDao().clearSessionState(levelId)
+                            levelCompleted = true
 
                             onLevelComplete(level.password)
                         }

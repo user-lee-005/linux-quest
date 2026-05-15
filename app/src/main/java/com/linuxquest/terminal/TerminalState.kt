@@ -3,6 +3,8 @@ package com.linuxquest.terminal
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import org.json.JSONArray
+import org.json.JSONObject
 
 enum class LineType { PROMPT, OUTPUT, ERROR, SYSTEM, INFO }
 
@@ -73,6 +75,44 @@ class TerminalState(private val maxLines: Int = 5000) {
     }
 
     fun getCommandHistory(): List<String> = commandHistory.toList()
+
+    fun serializeLines(): String {
+        val arr = JSONArray()
+        lines.forEach { line ->
+            val obj = JSONObject()
+            obj.put("t", line.text)
+            obj.put("y", line.type.name)
+            arr.put(obj)
+        }
+        return arr.toString()
+    }
+
+    fun serializeCommandHistory(): String {
+        val arr = JSONArray()
+        commandHistory.forEach { arr.put(it) }
+        return arr.toString()
+    }
+
+    fun restoreLines(json: String) {
+        try {
+            val arr = JSONArray(json)
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val text = obj.getString("t")
+                val type = try { LineType.valueOf(obj.getString("y")) } catch (_: Exception) { LineType.OUTPUT }
+                lines.add(TerminalLine(text, type))
+            }
+        } catch (_: Exception) { /* ignore corrupt data */ }
+    }
+
+    fun restoreCommandHistory(json: String) {
+        try {
+            val arr = JSONArray(json)
+            for (i in 0 until arr.length()) {
+                commandHistory.add(arr.getString(i))
+            }
+        } catch (_: Exception) { /* ignore corrupt data */ }
+    }
 
     private fun trimBuffer() {
         while (lines.size > maxLines) {

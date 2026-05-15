@@ -23,11 +23,26 @@ interface ProgressDao {
     @Upsert
     suspend fun upsertProgress(progress: LevelProgress)
 
+    @Query("INSERT OR IGNORE INTO level_progress (levelId, completed, attempted, stars, hintsUsed, commandsUsed, timeTakenSeconds, password, completedAt, xpEarned) VALUES (:levelId, 0, 0, 0, 0, 0, 0, NULL, NULL, 0)")
+    suspend fun ensureLevelExists(levelId: Int)
+
     @Query("UPDATE level_progress SET completed = 1, password = :password, stars = :stars, hintsUsed = :hints, commandsUsed = :commands, timeTakenSeconds = :time, completedAt = :completedAt, xpEarned = :xp WHERE levelId = :levelId")
     suspend fun completeLevel(levelId: Int, password: String, stars: Int, hints: Int, commands: Int, time: Long, completedAt: Long, xp: Int)
 
     @Query("UPDATE level_progress SET attempted = 1, hintsUsed = :hints, commandsUsed = :commands WHERE levelId = :levelId")
     suspend fun attemptLevel(levelId: Int, hints: Int, commands: Int)
+
+    @Query("UPDATE level_progress SET terminalHistory = :terminal, commandHistory = :commands WHERE levelId = :levelId")
+    suspend fun saveSessionState(levelId: Int, terminal: String?, commands: String?)
+
+    @Query("SELECT terminalHistory FROM level_progress WHERE levelId = :levelId")
+    suspend fun getTerminalHistory(levelId: Int): String?
+
+    @Query("SELECT commandHistory FROM level_progress WHERE levelId = :levelId")
+    suspend fun getCommandHistory(levelId: Int): String?
+
+    @Query("UPDATE level_progress SET terminalHistory = NULL, commandHistory = NULL WHERE levelId = :levelId")
+    suspend fun clearSessionState(levelId: Int)
 
     @Query("SELECT MIN(levelId) FROM level_progress WHERE attempted = 1 AND completed = 0")
     suspend fun getLastAttemptedLevel(): Int?

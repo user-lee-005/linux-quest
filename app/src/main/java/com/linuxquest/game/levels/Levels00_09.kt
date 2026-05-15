@@ -27,18 +27,18 @@ fun createFileBasicsLevels(): List<Level> {
             id = 0,
             title = "Welcome",
             category = LevelCategory.FILE_BASICS,
-            description = "Find the password stored in the readme file in your home directory.",
-            briefing = "Welcome to LinuxQuest! You've just connected to the server. Every level has a password hidden somewhere. Your first task is simple: read the contents of a file.",
+            description = "A file with 'readme' in its name contains the password. List files and read the right one.",
+            briefing = "Welcome to LinuxQuest! You've just connected to the server. Every level has a password hidden somewhere. Your first task is simple: find and read the correct file.",
             hints = listOf(
                 "Try listing files with 'ls'",
-                "There's a file called 'readme' — read it",
-                "Use 'cat readme' to display the file contents"
+                "Look for a file with 'readme' in the name",
+                "Use 'cat <filename>' to display file contents"
             ),
             password = ps.getPassword(0),
             setupFileSystem = { vfs, seed ->
                 val r = LevelRandomizer(seed)
                 val password = PasswordSystem().getPassword(0)
-                val fileName = r.randomFileName()
+                val fileName = r.randomFileNameWithKeyword("readme")
                 vfs.createFile("/home/bandit0/$fileName", password.toByteArray(), Permissions.fromOctal(644))
                 for ((name, content) in r.randomDecoyFiles(2)) {
                     vfs.createFile("/home/bandit0/$name", content.toByteArray(), Permissions.fromOctal(644))
@@ -57,12 +57,12 @@ fun createFileBasicsLevels(): List<Level> {
             id = 1,
             title = "Moving Around",
             category = LevelCategory.FILE_BASICS,
-            description = "The password is in a file deep within nested directories. Navigate to find it.",
+            description = "The password is in a file deep within nested directories. Use 'ls' and 'cd' to explore and find it.",
             briefing = "Files aren't always right in front of you. Sometimes you need to navigate through directories to find what you're looking for.",
             hints = listOf(
                 "Use 'ls' to see what's in each directory",
-                "Navigate with 'cd deep' then keep going deeper",
-                "The full path is deep/nested/directory/password.txt — use cd or cat with the path"
+                "Navigate into directories with 'cd <dirname>' and keep going deeper",
+                "Once you find the file at the bottom, use 'cat <filename>' to read it"
             ),
             password = ps.getPassword(1),
             setupFileSystem = { vfs, seed ->
@@ -267,11 +267,11 @@ fun createFileBasicsLevels(): List<Level> {
             id = 6,
             title = "Deeper Dive",
             category = LevelCategory.FILE_BASICS,
-            description = "The password file is hidden somewhere in the /home/bandit0/data directory tree. Find it.",
+            description = "The password is in a file with 'secret' in its name, hidden somewhere in the ~/data directory tree. Use 'find' to locate it.",
             briefing = "When you have a large directory tree, manually navigating every folder is impractical. The 'find' command lets you search for files by name, size, type, and more.",
             hints = listOf(
                 "The file is somewhere in ~/data — don't search manually",
-                "Use 'find ~/data -name secret.txt' to locate it",
+                "Use 'find ~/data -name \"*secret*\"' to search by keyword",
                 "Once found, use 'cat' on the full path to read it"
             ),
             password = ps.getPassword(6),
@@ -303,8 +303,9 @@ fun createFileBasicsLevels(): List<Level> {
                     r.randomDecoyContent().toByteArray(),
                     Permissions.fromOctal(644)
                 )
+                // Password file always contains 'secret' keyword in its name
                 vfs.createFile(
-                    "/home/bandit0/data/${dirs[1]}/${subs[3]}/${r.randomFileNameWithExt()}",
+                    "/home/bandit0/data/${dirs[1]}/${subs[3]}/${r.randomFileNameWithKeywordAndExt("secret")}",
                     password.toByteArray(),
                     Permissions.fromOctal(644)
                 )
