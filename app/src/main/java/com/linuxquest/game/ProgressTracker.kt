@@ -26,7 +26,8 @@ class ProgressTracker(private val progressDao: ProgressDao) {
             hints = hintsUsed,
             commands = commandsUsed,
             time = timeSeconds,
-            completedAt = System.currentTimeMillis()
+            completedAt = System.currentTimeMillis(),
+            xp = XpSystem.calculateXp(stars, hintsUsed, timeSeconds)
         )
     }
 
