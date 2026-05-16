@@ -24,6 +24,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -50,6 +52,15 @@ fun TerminalView(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // Calculate max characters per line based on screen width
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val maxChars = remember(configuration.screenWidthDp, fontSize) {
+        val availableWidthDp = configuration.screenWidthDp - 16 // padding
+        val charWidthDp = fontSize * 0.6f // monospace char width approximation
+        (availableWidthDp / charWidthDp).toInt().coerceAtLeast(20)
+    }
+
     // Auto-scroll to bottom when new lines are added
     LaunchedEffect(terminalState.lines.size) {
         if (terminalState.lines.isNotEmpty()) {
@@ -69,13 +80,16 @@ fun TerminalView(
             .background(DeepNavy)
             .imePadding()
     ) {
-        // Terminal output area — wrapped in SelectionContainer for long-press copy
-        SelectionContainer {
+        // Terminal output — SelectionContainer gets weight so QuickActionBar stays at bottom
+        SelectionContainer(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .padding(horizontal = 8.dp)
                     .clickable {
                         focusRequester.requestFocus()
@@ -83,7 +97,7 @@ fun TerminalView(
                     }
             ) {
                 items(terminalState.lines.toList()) { line ->
-                    TerminalLineRow(line = line, fontSize = fontSize)
+                    TerminalLineRow(line = line, fontSize = fontSize, maxChars = maxChars)
                 }
 
                 // Current input line
@@ -104,7 +118,7 @@ fun TerminalView(
             }
         }
 
-        // Quick action bar
+        // Quick action bar — fixed at bottom, never pushed off screen
         QuickActionBar(
             onAction = { action ->
                 when (action) {
@@ -139,14 +153,32 @@ fun TerminalView(
                     }
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
         )
     }
 }
 
+/** Break long text into lines that fit the screen width */
+private fun wrapText(text: String, maxChars: Int): String {
+    if (text.length <= maxChars || maxChars <= 0) return text
+    val sb = StringBuilder()
+    var i = 0
+    while (i < text.length) {
+        val end = (i + maxChars).coerceAtMost(text.length)
+        if (i > 0) sb.append('\n')
+        sb.append(text, i, end)
+        i = end
+    }
+    return sb.toString()
+}
+
 @Composable
-private fun TerminalLineRow(line: TerminalLine, fontSize: Int) {
-    val segments = AnsiParser.parse(line.text)
+private fun TerminalLineRow(line: TerminalLine, fontSize: Int, maxChars: Int) {
+    val rawText = line.text
+    val wrappedText = remember(rawText, maxChars) { wrapText(rawText, maxChars) }
+    val segments = AnsiParser.parse(wrappedText)
     val baseColor = when (line.type) {
         LineType.PROMPT -> TerminalCyan
         LineType.ERROR -> TerminalRed
