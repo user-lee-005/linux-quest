@@ -47,12 +47,16 @@ fun HomeScreen(
     val profile by db.progressDao().getProfileFlow()
         .collectAsState(initial = null)
 
+    // Ensure profile exists on mount
+    LaunchedEffect(Unit) {
+        val xpSystem = XpSystem(db.progressDao())
+        xpSystem.getProfile()
+    }
+
     // Determine next level
     var nextLevel by remember { mutableIntStateOf(0) }
     var hasProgress by remember { mutableStateOf(false) }
     LaunchedEffect(completedCount) {
-        val xpSystem = XpSystem(db.progressDao())
-        xpSystem.getProfile() // ensure profile exists
         // Find next incomplete level
         for (id in 0..55) {
             val progress = db.progressDao().getProgress(id)
@@ -198,8 +202,9 @@ fun HomeScreen(
                 Text(
                     text = if (hasProgress) "▶  CONTINUE — Level $nextLevel" else "▶  START QUEST",
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = if (hasProgress) 15.sp else 18.sp
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = if (hasProgress) 15.sp else 18.sp,
+                    color = DeepNavy
                 )
             }
 

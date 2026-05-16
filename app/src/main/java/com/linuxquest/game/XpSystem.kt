@@ -60,6 +60,17 @@ class XpSystem(private val progressDao: ProgressDao) {
         }
     }
 
+    /** Add XP without incrementing levelsCompleted (for score improvements) */
+    suspend fun addXpOnly(xp: Int) {
+        ensureProfile()
+        progressDao.addXpOnly(xp)
+        val profile = progressDao.getProfile() ?: return
+        val newRank = getRank(profile.totalXp)
+        if (newRank.name != profile.currentRank) {
+            progressDao.updateRank(newRank.name)
+        }
+    }
+
     suspend fun getProfile(): UserProfile {
         ensureProfile()
         return progressDao.getProfile() ?: UserProfile()

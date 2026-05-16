@@ -177,7 +177,10 @@ private fun TerminalLineRow(line: TerminalLine, fontSize: Int) {
         },
         fontFamily = FontFamily.Monospace,
         fontSize = fontSize.sp,
-        modifier = Modifier.padding(vertical = 1.dp)
+        softWrap = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 1.dp)
     )
 }
 

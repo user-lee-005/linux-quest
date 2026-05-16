@@ -183,8 +183,8 @@ fun GameScreen(
                             )
                         }
                         // Completed levels: skip save to protect highest score
+                        onBack()
                     }
-                    onBack()
                 }) {
                     Text("SAVE & LEAVE", fontFamily = FontFamily.Monospace, color = TerminalYellow)
                 }
@@ -383,58 +383,63 @@ fun GameScreen(
                     // Update prompt (may change after cd, su, etc.)
                     currentPrompt = interpreter.getPrompt()
 
-                    // Check level completion
+                    // Check level completion (guard against double-trigger)
                     val output = result.stdout + result.stderr
-                    if (validator.checkCompletion(level, vfs, output)) {
+                    if (!levelCompleted && validator.checkCompletion(level, vfs, output)) {
+                        levelCompleted = true // set immediately to prevent re-entry
                         val elapsed = (System.currentTimeMillis() - startTime) / 1000
                         val stars = calculateStars(hintsUsed, commandsUsed, elapsed)
                         val xp = XpSystem.calculateXp(stars, hintsUsed, elapsed)
 
                         scope.launch {
-                            val xpSystem = XpSystem(db.progressDao())
-                            val existing = db.progressDao().getProgress(levelId)
-                            val isNewCompletion = existing == null || !existing.completed
-                            val isBetterScore = existing == null || stars > existing.stars
+                            try {
+                                val xpSystem = XpSystem(db.progressDao())
+                                val existing = db.progressDao().getProgress(levelId)
+                                val isNewCompletion = existing == null || !existing.completed
+                                val isBetterScore = existing == null || stars > existing.stars
 
-                            db.progressDao().ensureLevelExists(levelId)
+                                db.progressDao().ensureLevelExists(levelId)
 
-                            if (isNewCompletion || isBetterScore) {
-                                db.progressDao().completeLevel(
+                                if (isNewCompletion || isBetterScore) {
+                                    db.progressDao().completeLevel(
+                                        levelId = levelId,
+                                        password = level.password,
+                                        stars = stars,
+                                        hints = hintsUsed,
+                                        commands = commandsUsed,
+                                        time = elapsed,
+                                        completedAt = System.currentTimeMillis(),
+                                        xp = xp
+                                    )
+                                }
+
+                                if (isNewCompletion) {
+                                    xpSystem.awardXp(xp)
+                                } else if (isBetterScore) {
+                                    val xpDiff = xp - (existing?.xpEarned ?: 0)
+                                    if (xpDiff > 0) xpSystem.addXpOnly(xpDiff)
+                                }
+
+                                // Check achievements
+                                val completedCount = db.progressDao().getCompletedCountSync()
+                                val profile = xpSystem.getProfile()
+                                val achievementMgr = com.linuxquest.game.AchievementManager(db.achievementDao(), db.progressDao())
+                                achievementMgr.checkAndUnlock(
                                     levelId = levelId,
-                                    password = level.password,
-                                    stars = stars,
-                                    hints = hintsUsed,
-                                    commands = commandsUsed,
-                                    time = elapsed,
-                                    completedAt = System.currentTimeMillis(),
-                                    xp = xp
+                                    hintsUsed = hintsUsed,
+                                    timeSeconds = elapsed,
+                                    totalCompleted = completedCount,
+                                    totalXp = profile.totalXp
                                 )
+
+                                // Clear saved session state on completion
+                                db.progressDao().clearSessionState(levelId)
+
+                                onLevelComplete(level.password)
+                            } catch (e: Exception) {
+                                // Fallback: still navigate even if DB ops fail
+                                onLevelComplete(level.password)
                             }
-
-                            if (isNewCompletion) {
-                                xpSystem.awardXp(xp)
-                            } else if (isBetterScore) {
-                                val xpDiff = xp - (existing?.xpEarned ?: 0)
-                                if (xpDiff > 0) xpSystem.awardXp(xpDiff)
-                            }
-
-                            // Check achievements
-                            val completedCount = db.progressDao().getCompletedCountSync()
-                            val profile = xpSystem.getProfile()
-                            val achievementMgr = com.linuxquest.game.AchievementManager(db.achievementDao(), db.progressDao())
-                            achievementMgr.checkAndUnlock(
-                                levelId = levelId,
-                                hintsUsed = hintsUsed,
-                                timeSeconds = elapsed,
-                                totalCompleted = completedCount,
-                                totalXp = profile.totalXp
-                            )
-
-                            // Clear saved session state on completion
-                            db.progressDao().clearSessionState(levelId)
-                            levelCompleted = true
-
-                            onLevelComplete(level.password)
                         }
                     }
                 }

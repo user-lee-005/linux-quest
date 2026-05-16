@@ -63,6 +63,9 @@ interface ProgressDao {
     @Query("UPDATE user_profile SET totalXp = totalXp + :xp, levelsCompleted = levelsCompleted + 1 WHERE id = 1")
     suspend fun addXp(xp: Int)
 
+    @Query("UPDATE user_profile SET totalXp = totalXp + :xp WHERE id = 1")
+    suspend fun addXpOnly(xp: Int)
+
     @Query("UPDATE user_profile SET currentRank = :rank WHERE id = 1")
     suspend fun updateRank(rank: String)
 }
