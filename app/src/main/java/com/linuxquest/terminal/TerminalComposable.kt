@@ -254,9 +254,11 @@ private fun CurrentInputLine(
 
         BasicTextField(
             value = terminalState.currentInput.value,
-            onValueChange = {
-                terminalState.currentInput.value = it
-                terminalState.cursorPosition.value = it.length
+            onValueChange = { newValue ->
+                // Strip newlines — user submits via Done key, not Enter in text
+                val sanitized = newValue.replace("\n", "").replace("\r", "")
+                terminalState.currentInput.value = sanitized
+                terminalState.cursorPosition.value = sanitized.length
             },
             textStyle = TextStyle(
                 fontFamily = FontFamily.Monospace,
@@ -264,7 +266,7 @@ private fun CurrentInputLine(
                 color = TextPrimary
             ),
             cursorBrush = SolidColor(TerminalCyan.copy(alpha = cursorAlpha)),
-            singleLine = true,
+            singleLine = false,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(
                 onDone = {
